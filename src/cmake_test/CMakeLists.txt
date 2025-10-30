@@ -1,16 +1,41 @@
 cmake_minimum_required(VERSION 3.20)
 
-# set(CMAKE_CXX_COMPILER "C:/mingw64/bin/g++.exe")
-
 project(CMakeTest LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# -------------------------------
+# Third-party includes
+# -------------------------------
+set(GLM_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/../../thirdparty/glm")
+set(GLFW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/../../thirdparty/glfw/include")
 
-include_directories(${CMAKE_SOURCE_DIR}/../../thirdparty/glm)
+include_directories(${GLM_INCLUDE_DIR})
+include_directories(${GLFW_INCLUDE_DIR})
 
-add_executable(CMakeTest main.cpp)
-set_target_properties(CMakeTest PROPERTIES
-    WIN32_EXECUTABLE FALSE
+# -------------------------------
+# Prebuilt GLFW library
+# -------------------------------
+set(GLFW_LIBRARY "${CMAKE_SOURCE_DIR}/../../thirdparty/glfw/build/src/Debug/glfw3.lib")
+
+add_library(GLFW STATIC IMPORTED)
+set_target_properties(GLFW PROPERTIES
+    IMPORTED_LOCATION "${GLFW_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${GLFW_INCLUDE_DIR}"
 )
+
+# -------------------------------
+# Executable
+# -------------------------------
+add_executable(CMakeTest main.cpp)
+
+target_link_libraries(CMakeTest PRIVATE GLFW) # add vulkan later
+
+
+# -------------------------------
+# Optional: Windows-specific settings
+# -------------------------------
+# set_target_properties(CMakeTest PROPERTIES
+#     WIN32_EXECUTABLE FALSE
+# )
