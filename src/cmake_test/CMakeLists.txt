@@ -26,11 +26,20 @@ set_target_properties(GLFW PROPERTIES
 )
 
 # -------------------------------
+# Vulkan
+# -------------------------------
+set(VULKAN_INCLUDE_DIR "$ENV{VULKAN_SDK}/Include")
+set(VULKAN_LIBRARY "$ENV{VULKAN_SDK}/Lib/vulkan-1.lib")
+
+include_directories(${VULKAN_INCLUDE_DIR})
+
+# -------------------------------
 # Executable
 # -------------------------------
 add_executable(CMakeTest main.cpp)
 
-target_link_libraries(CMakeTest PRIVATE GLFW) # add vulkan later
+target_link_libraries(CMakeTest PRIVATE GLFW)
+target_link_libraries(CMakeTest PRIVATE ${VULKAN_LIBRARY})
 
 
 # -------------------------------
