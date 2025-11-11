@@ -1,6 +1,9 @@
 #include <iostream>
+#include "Log.hpp"
 
 int main() {
-    std::cout << "Hello!\n";
+    REX_PRINT("bunaaaaa");
+    REX_LOG("Buna! Eu sunt RexCore");
+    REX_ERROR("Iar asta este o eroare");
     return 0;
 }
