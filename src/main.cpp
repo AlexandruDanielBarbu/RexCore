@@ -11,7 +11,6 @@ class HelloTriangle {
       public:
         void run() {
                 initWindow();
-
                 initVulkan();
                 mainLoop();
                 cleanup();
@@ -22,6 +21,15 @@ class HelloTriangle {
         const uint32_t HEIGHT       = 800;
         const char*    APP_TITLE    = "RexCore_triangle";
         const char*    ENGINE_TITLE = "RexCore";
+
+        const std::vector<const char*> validationLayers = {
+            "VK_LAYER_KHRONOS_validation"};
+
+#ifdef NDEBUG
+        const bool enableValidationLayers = false;
+#else
+        const bool enableValidationLayers = true;
+#endif // NDEBUG
 
 
         GLFWwindow* window   = nullptr;
@@ -55,27 +63,41 @@ class HelloTriangle {
                                 }
                         }
 
-                        if (found == false)
+                        if (!found)
                                 return false;
                 }
                 return true;
         }
 
-        void createInstance() {
-                VkApplicationInfo appInfo  = {};
-                appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-                appInfo.pApplicationName   = APP_TITLE;
-                appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-                appInfo.pEngineName        = ENGINE_TITLE;
-                appInfo.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
-                
-                // Use latest API version or default to 1.0
-                uint32_t latestVersion = 0;
-                if (vkEnumerateInstanceVersion(&latestVersion) != VK_SUCCESS) {
-                        latestVersion = VK_API_VERSION_1_0;
-                }
-                appInfo.apiVersion = latestVersion;
+        bool checkValidationLayerSupport() {
+                // Get supported layers
+                uint32_t extensionCount;
+                vkEnumerateInstanceLayerProperties(&extensionCount, nullptr);
 
+                std::vector<VkLayerProperties> layers(extensionCount);
+                vkEnumerateInstanceLayerProperties(&extensionCount,
+                                                   layers.data());
+
+                // Check if wanted layers are here
+                for (const auto& validationLayer : validationLayers) {
+                        bool found = false;
+                        for (const auto& layer : layers) {
+                                if (strcmp(validationLayer, layer.layerName) ==
+                                    0) {
+                                        found = true;
+                                        break;
+                                }
+                        }
+
+                        if (!found)
+                                return false;
+                }
+
+                return true;
+        }
+
+        const std::vector<VkExtensionProperties>
+        getAndPrintAllSupportedExtensions() {
                 uint32_t extensionCount;
                 vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount,
                                                        nullptr);
@@ -89,24 +111,61 @@ class HelloTriangle {
                                   << extension.specVersion << std::endl;
                 }
 
+                return extensions;
+        }
+
+        void createInstance() {
+                // Set up the info of the instance
+                VkApplicationInfo appInfo  = {};
+                appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+                appInfo.pApplicationName   = APP_TITLE;
+                appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+                appInfo.pEngineName        = ENGINE_TITLE;
+                appInfo.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
+
+
+                // Use latest API version or default to 1.0
+                uint32_t latestVersion = 0;
+                if (vkEnumerateInstanceVersion(&latestVersion) != VK_SUCCESS) {
+                        latestVersion = VK_API_VERSION_1_0;
+                }
+                appInfo.apiVersion = latestVersion;
+
+
                 VkInstanceCreateInfo createInfo = {};
                 createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
                 createInfo.pApplicationInfo = &appInfo;
 
+                // Get required GLFW extensions
                 uint32_t     glfwExtensionCount;
                 const char** glfwExtensions = nullptr;
                 glfwExtensions =
                     glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-                REX_LOG(checkGlfwExtensions(extensions, glfwExtensions,
-                                            glfwExtensionCount)
-                            ? "GLFW extensions supported"
-                            : "Some GLFW extensions are not supported");
+                if (!checkGlfwExtensions(getAndPrintAllSupportedExtensions(),
+                                         glfwExtensions, glfwExtensionCount)) {
+                        throw std::runtime_error(
+                            "Some GLFW extensions are not supported!");
+                }
 
                 createInfo.enabledExtensionCount   = glfwExtensionCount;
                 createInfo.ppEnabledExtensionNames = glfwExtensions;
-                // Validation layers off for now
-                createInfo.enabledLayerCount = 0;
+
+
+                // Validation layers setup
+                if (enableValidationLayers && !checkValidationLayerSupport()) {
+                        throw std::runtime_error(
+                            "Validation layers not supported!");
+                }
+
+                if (enableValidationLayers) {
+                        createInfo.enabledLayerCount =
+                            static_cast<uint32_t>(validationLayers.size());
+                        createInfo.ppEnabledLayerNames =
+                            validationLayers.data();
+                } else {
+                        createInfo.enabledLayerCount = 0;
+                }
 
                 if (vkCreateInstance(&createInfo, nullptr, &instance) !=
                     VK_SUCCESS) {
