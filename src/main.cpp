@@ -34,6 +34,7 @@ class HelloTriangle {
 
         GLFWwindow* window   = nullptr;
         VkInstance  instance = {};
+        VkDebugUtilsMessengerEXT debugMessenger = {};
 
         void initWindow() {
                 glfwInit();
@@ -48,16 +49,22 @@ class HelloTriangle {
                                           nullptr);
         }
 
-        void initVulkan() { createInstance(); }
+        void initVulkan() { createInstance();
+                setupDebugMessenger();
+        }
 
-        bool checkGlfwExtensions(
+        void setupDebugMessenger() {
+                if (!enableValidationLayers)
+                        return;
+        }
+        bool checkExtensionsSupport(
             const std::vector<VkExtensionProperties>& extensions,
-            const char** glfwExtensions, const uint32_t glfwExtensionCount) {
-                for (size_t i = 0; i < glfwExtensionCount; i++) {
+            const std::vector<const char*>&           required) {
+                for (const auto& requiredExtension : required) {
                         bool found = false;
                         for (const auto& extension : extensions) {
                                 if (std::strcmp(extension.extensionName,
-                                                glfwExtensions[i]) == 0) {
+                                                requiredExtension) == 0) {
                                         found = true;
                                         break;
                                 }
@@ -114,6 +121,36 @@ class HelloTriangle {
                 return extensions;
         }
 
+        std::vector<const char*> getRequiredExtensions() {
+                uint32_t     glfwExtensionCount = 0;
+                const char** glfwExtensions     = nullptr;
+                glfwExtensions =
+                    glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+                std::vector<const char*> extensions(
+                    glfwExtensions, glfwExtensions + glfwExtensionCount);
+
+                if (enableValidationLayers) {
+                        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+                }
+
+                return extensions;
+        }
+        
+        // Vulkan validation layers debug callback for printing messages
+        static VKAPI_ATTR VkBool32 VKAPI_CALL
+        debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                      VkDebugUtilsMessageTypeFlagsEXT        messageType,
+                      const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+                      void*                                       pUserData) {
+
+                std::cerr << "validation layer: " << pCallbackData->pMessage
+                          << std::endl;
+
+
+                return VK_FALSE;
+        }
+
         void createInstance() {
                 // Set up the info of the instance
                 VkApplicationInfo appInfo  = {};
@@ -136,21 +173,17 @@ class HelloTriangle {
                 createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
                 createInfo.pApplicationInfo = &appInfo;
 
-                // Get required GLFW extensions
-                uint32_t     glfwExtensionCount;
-                const char** glfwExtensions = nullptr;
-                glfwExtensions =
-                    glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-                if (!checkGlfwExtensions(getAndPrintAllSupportedExtensions(),
-                                         glfwExtensions, glfwExtensionCount)) {
+                // Extensions setup
+                auto extensions = getRequiredExtensions();
+                if (!checkExtensionsSupport(getAndPrintAllSupportedExtensions(),
+                                            extensions)) {
                         throw std::runtime_error(
                             "Some GLFW extensions are not supported!");
                 }
 
-                createInfo.enabledExtensionCount   = glfwExtensionCount;
-                createInfo.ppEnabledExtensionNames = glfwExtensions;
-
+                createInfo.enabledExtensionCount =
+                    static_cast<uint32_t>(extensions.size());
+                createInfo.ppEnabledExtensionNames = extensions.data();
 
                 // Validation layers setup
                 if (enableValidationLayers && !checkValidationLayerSupport()) {
