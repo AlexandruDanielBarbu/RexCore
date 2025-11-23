@@ -55,8 +55,9 @@ class HelloTriangle {
 #endif // NDEBUG
 
 
-        GLFWwindow* window   = nullptr;
-        VkInstance  instance = {};
+        GLFWwindow*              window         = nullptr;
+        VkInstance               instance       = {};
+        VkPhysicalDevice         physicalDevice = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT debugMessenger = {};
 
         void initWindow() {
@@ -75,12 +76,13 @@ class HelloTriangle {
         void initVulkan() {
                 createInstance();
                 setupDebugMessenger();
+                pickPhysicalDevice();
         }
 
         void setupDebugMessenger() {
                 if (!enableValidationLayers)
                         return;
-                
+
                 VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
                 createInfo.sType =
                     VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -102,6 +104,7 @@ class HelloTriangle {
                             "failed to set up debug messenger!");
                 }
         }
+
         bool checkExtensionsSupport(
             const std::vector<VkExtensionProperties>& extensions,
             const std::vector<const char*>&           required) {
@@ -181,7 +184,7 @@ class HelloTriangle {
 
                 return extensions;
         }
-        
+
         // Vulkan validation layers debug callback for printing messages
         static VKAPI_ATTR VkBool32 VKAPI_CALL
         debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -236,6 +239,7 @@ class HelloTriangle {
                             "Validation layers not supported!");
                 }
 
+                // validation layers for creating validation layers
                 VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
                 if (enableValidationLayers) {
                         createInfo.enabledLayerCount =
@@ -255,12 +259,12 @@ class HelloTriangle {
                             VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
                         debugCreateInfo.pfnUserCallback = debugCallback;
                         debugCreateInfo.pUserData       = nullptr;
-                        
+
                         createInfo.pNext =
                             (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
                 } else {
                         createInfo.enabledLayerCount = 0;
-                        createInfo.pNext = nullptr;
+                        createInfo.pNext             = nullptr;
                 }
 
                 if (vkCreateInstance(&createInfo, nullptr, &instance) !=
@@ -268,6 +272,47 @@ class HelloTriangle {
                         throw std::runtime_error("failed to create instance!");
                 }
         }
+
+        bool isDeviceSuitable(VkPhysicalDevice device) {
+                VkPhysicalDeviceProperties deviceProperties;
+                vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+                VkPhysicalDeviceFeatures deviceFeatures;
+                vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+
+                return deviceProperties.deviceType ==
+                           VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+        }
+
+        void pickPhysicalDevice() {
+                uint32_t deviceCount = 0;
+                vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+
+                if (deviceCount == 0) {
+                        throw std::runtime_error(
+                            "failed to find GPUs with Vulkan support!");
+                }
+
+                std::vector<VkPhysicalDevice> devices(deviceCount);
+                vkEnumeratePhysicalDevices(instance, &deviceCount,
+                                           devices.data());
+
+                for (const auto& device : devices) {
+                        if (isDeviceSuitable(device)) {
+
+                                physicalDevice = device;
+                                break;
+                        }
+                }
+
+                if (physicalDevice == VK_NULL_HANDLE) {
+                        throw std::runtime_error(
+                            "failed to find a suitable GPU!");
+                }
+        }
+
+
         void mainLoop() {
                 while (!glfwWindowShouldClose(window)) {
                         glfwPollEvents();
