@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 file(GLOB_RECURSE SOURCES src/*.cpp)
 file(GLOB_RECURSE HEADERS src/*.hpp)
 
-add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS} "src/Log.cpp")
+add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS} )
 
 # -------------------------------
 # Third-party includes

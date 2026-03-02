@@ -44,9 +44,9 @@ class HelloTriangle {
         const uint32_t HEIGHT       = 800;
         const char*    APP_TITLE    = "RexCore_triangle";
         const char*    ENGINE_TITLE = "RexCore";
-
         const std::vector<const char*> validationLayers = {
-            "VK_LAYER_KHRONOS_validation"};
+            "VK_LAYER_KHRONOS_validation"
+        };
 
 #ifdef NDEBUG
         const bool enableValidationLayers = false;
@@ -192,7 +192,7 @@ class HelloTriangle {
                       const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
                       void*                                       pUserData) {
 
-                std::cerr << "validation layer: " << pCallbackData->pMessage
+                std::cerr << "VALIDATION LAYER:\t" << pCallbackData->pMessage
                           << std::endl;
 
 
