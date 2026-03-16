@@ -128,10 +128,19 @@ endfunction()
 function (add_chapter CHAPTER_NAME)
   cmake_parse_arguments (CHAPTER "" "SHADER" "LIBS;TEXTURES;MODELS" ${ARGN})
   add_executable (${CHAPTER_NAME} ${CHAPTER_NAME}.cpp)
+
   set_target_properties (${CHAPTER_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CHAPTER_NAME})
   set_target_properties (${CHAPTER_NAME} PROPERTIES CXX_STANDARD 20)
   target_link_libraries (${CHAPTER_NAME} Vulkan::cppm glfw)
+  
+  target_link_libraries (${CHAPTER_NAME} 
+    Vulkan::Vulkan 
+    glfw 
+    glm::glm 
+    tinyobjloader::tinyobjloader
+  )
+
   target_include_directories (${CHAPTER_NAME} PRIVATE ${STB_INCLUDEDIR})
 
   # Add compile definition if C++ 20 module is enabled
