@@ -23,6 +23,19 @@ constexpr bool enableValidationLayers = false;
 constexpr bool enableValidationLayers = true;
 #endif        // NDEBUG
 
+
+// Validation layer debug printing callback
+static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT      severity,
+                                                      vk::DebugUtilsMessageTypeFlagsEXT             type,
+                                                      const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                                                      void                                         *pUserData)
+{
+	std::cerr << "validation layer:\n\ttype " << to_string(type) << "\n\tmsg: " << pCallbackData->pMessage << std::endl;
+
+	return vk::False;
+}
+
+
 class Engine
 {
   public:
@@ -46,8 +59,10 @@ class Engine
 		// Creating the Window
 		window = glfwCreateWindow(WIDTH, HEIGHT, WINDOW_TITLE, nullptr, nullptr);
 	}
+	
 	void initVulkan() {
 		createInstance();
+		setupDebugMessenger();
 	}
 
 	vk::raii::Context context;
@@ -87,9 +102,9 @@ class Engine
 	        uint32_t glfwExtensionCount = 0;
 		const char **glfwExtensions  = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 		std::vector  requiredExtensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-		/*if (enableValidationLayers) {
+		if (enableValidationLayers) {
 		    requiredExtensions.push_back(vk::EXTDebugUtilsExtensionName);
-		}*/
+		}
 
 		auto extensionPrperties = context.enumerateInstanceExtensionProperties();
 		auto unsupportedPropertyIt = std::ranges::find_if(
@@ -119,6 +134,30 @@ class Engine
 		};
 
 		instance = vk::raii::Instance(context, createInfo);
+	}
+	
+	vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
+	void setupDebugMessenger()
+	{
+		if (!enableValidationLayers) {
+			return;
+		}
+		
+		// TODO continue here with setting up the debug messenger
+		vk::DebugUtilsMessageSeverityFlagsEXT severityFlags(
+		    vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+		    vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+		    vk::DebugUtilsMessageSeverityFlagBitsEXT::eError);
+
+		vk::DebugUtilsMessageTypeFlagsEXT messageTypeFlags(
+		    vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+		    vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+		    vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation);
+
+		vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfoEXT{
+		    .messageSeverity = severityFlags,
+		    .messageType     = messageTypeFlags,
+		    .pfnUserCallback = &debugCallback};
 	}
 	void mainLoop() {
 		while (!glfwWindowShouldClose(window)) {
