@@ -13,9 +13,7 @@ constexpr uint32_t WIDTH          = 800;
 constexpr uint32_t HEIGHT         = 800;
 constexpr char     WINDOW_TITLE[] = "Rex Core";
 
-const std::array<char const *, 1> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"
-};
+const std::array<char const *, 1> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
 #ifdef NDEBUG
 constexpr bool enableValidationLayers = false;
@@ -63,8 +61,56 @@ class Engine
 	void initVulkan() {
 		createInstance();
 		setupDebugMessenger();
+		pickPhysicalDevice();
 	}
 
+	vk::raii::PhysicalDevice physicalDevice = nullptr;
+	void pickPhysicalDevice() {
+		auto physicalDevices = instance.enumeratePhysicalDevices();
+
+		if (physicalDevices.empty()) {
+			throw std::runtime_error("Failed to pick a physical devide!");
+		}
+
+		auto physicalDeviceIt = std::ranges::find_if(
+			physicalDevices,
+			[](const auto &pd) {
+				// API version check
+				bool supportsVulkan1_3 = pd.getProperties().apiVersion >= vk::ApiVersion13;
+
+
+				// Queue family check
+				auto queueFamilies    = pd.getQueueFamilyProperties();
+				bool supportsGraphics = std::ranges::any_of(
+					queueFamilies,
+					[](const auto &qpf) {
+						return !!(qpf.queueFlags & vk::QueueFlagBits::eGraphics);
+					});
+
+
+				// Required extension check
+				const std::array<const char *, 1> requiredDeviceExtensions = {vk::KHRSwapchainExtensionName};
+				auto availableDeviceExtensions = pd.enumerateDeviceExtensionProperties();
+				bool supportsAllRequiredExtensions = std::ranges::all_of(
+					requiredDeviceExtensions,
+					[&availableDeviceExtensions](const auto &requiredDeviceExtension) {
+						return std::ranges::any_of(
+							availableDeviceExtensions,
+							[requiredDeviceExtension](const auto &availableDeviceExtension) {
+								return strcmp(requiredDeviceExtension, availableDeviceExtension.extensionName) == 0;
+						});
+					});
+
+
+				// Feature check
+				// todo
+				return true;
+			});
+
+		for (const auto &pd : physicalDevices) {
+			break;
+		}
+	}
 	vk::raii::Context context;
 	vk::raii::Instance instance = nullptr;
 	void createInstance() {
@@ -143,7 +189,6 @@ class Engine
 			return;
 		}
 		
-		// TODO continue here with setting up the debug messenger
 		vk::DebugUtilsMessageSeverityFlagsEXT severityFlags(
 		    vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
 		    vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
@@ -159,6 +204,7 @@ class Engine
 		    .messageType     = messageTypeFlags,
 		    .pfnUserCallback = &debugCallback};
 	}
+	
 	void mainLoop() {
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
