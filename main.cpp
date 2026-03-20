@@ -79,6 +79,10 @@ class Engine
 				bool supportsVulkan1_3 = pd.getProperties().apiVersion >= vk::ApiVersion13;
 
 
+				// Dedicated GPU check
+		                bool dedicatedGPU = pd.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
+
+
 				// Queue family check
 				auto queueFamilies    = pd.getQueueFamilyProperties();
 				bool supportsGraphics = std::ranges::any_of(
@@ -103,14 +107,20 @@ class Engine
 
 
 				// Feature check
-				// todo
-				return true;
+				auto features = pd.template getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+				bool supportsRequiredFeatures = features.template get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering &&
+					features.template get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
+				
+				return supportsVulkan1_3 && dedicatedGPU && supportsGraphics && supportsAllRequiredExtensions && supportsRequiredFeatures;
 			});
 
-		for (const auto &pd : physicalDevices) {
-			break;
+		if (physicalDeviceIt == physicalDevices.end()) {
+			throw std::runtime_error("Failed to pick a physical devide from the available ones!");
 		}
+
+		physicalDevice = *physicalDeviceIt;
 	}
+
 	vk::raii::Context context;
 	vk::raii::Instance instance = nullptr;
 	void createInstance() {
