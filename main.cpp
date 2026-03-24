@@ -44,7 +44,7 @@ class Engine
 		cleanup();
 	}
   private:
-	GLFWwindow *window;
+	GLFWwindow *window = nullptr;
 	void initWindow() {
 		glfwInit();
 
@@ -62,6 +62,49 @@ class Engine
 		createInstance();
 		setupDebugMessenger();
 		pickPhysicalDevice();
+		createLogicalDevice();
+	}
+
+	vk::raii::Device device = nullptr;
+	vk::raii::Queue  graphicsQueue = nullptr;
+	void createLogicalDevice() {
+		// Setup for Graphics Queue
+		std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+		auto graphicsQueueFamilyPropertyIt = std::ranges::find_if(
+			queueFamilyProperties,
+			[](const auto &qfp) {
+				return (qfp.queueFlags & vk::QueueFlagBits::eGraphics) != static_cast<vk::QueueFlagBits>(0);
+			});
+		auto graphicsQueueIndex = std::distance(queueFamilyProperties.begin(), graphicsQueueFamilyPropertyIt);
+		const float queuePriority = 0.5;
+
+		vk::DeviceQueueCreateInfo deviceQueueCreateInfo {
+			.queueFamilyIndex = static_cast<uint32_t>(graphicsQueueIndex),
+			.queueCount = 1,
+			.pQueuePriorities = &queuePriority
+		};
+
+		// Features wanted from the queue
+		vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> featureChain = {
+			{},
+			{.dynamicRendering = true},
+			{.extendedDynamicState = true}
+		};
+
+		const std::array<const char *, 1> requiredDeviceExtensions = {vk::KHRSwapchainExtensionName};
+
+		vk::DeviceCreateInfo deviceCreateInfo {
+			.pNext = featureChain.get<vk::PhysicalDeviceFeatures2>(),
+			
+			.queueCreateInfoCount = 1,
+			.pQueueCreateInfos = &deviceQueueCreateInfo,
+			
+			.enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()),
+			.ppEnabledExtensionNames = requiredDeviceExtensions.data()
+		};
+
+		device = vk::raii::Device(physicalDevice, deviceCreateInfo);
+	        graphicsQueue = vk::raii::Queue(device, graphicsQueueIndex, 0);
 	}
 
 	vk::raii::PhysicalDevice physicalDevice = nullptr;
