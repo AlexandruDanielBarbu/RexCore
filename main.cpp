@@ -61,8 +61,19 @@ class Engine
 	void initVulkan() {
 		createInstance();
 		setupDebugMessenger();
+		createSurface();
 		pickPhysicalDevice();
 		createLogicalDevice();
+	}
+
+	vk::raii::SurfaceKHR surface = nullptr;
+	void createSurface() {
+		VkSurfaceKHR _surface;
+		if (glfwCreateWindowSurface(*instance, window, nullptr, &_surface) != 0) {
+			throw std::runtime_error("Surface creation failed!");
+		}
+
+		surface = vk::raii::SurfaceKHR(instance, _surface);
 	}
 
 	vk::raii::Device device = nullptr;
