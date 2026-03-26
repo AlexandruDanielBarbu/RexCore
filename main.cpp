@@ -81,16 +81,21 @@ class Engine
 	void createLogicalDevice() {
 		// Setup for Graphics Queue
 		std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
-		auto graphicsQueueFamilyPropertyIt = std::ranges::find_if(
-			queueFamilyProperties,
-			[](const auto &qfp) {
-				return (qfp.queueFlags & vk::QueueFlagBits::eGraphics) != static_cast<vk::QueueFlagBits>(0);
-			});
-		auto graphicsQueueIndex = std::distance(queueFamilyProperties.begin(), graphicsQueueFamilyPropertyIt);
+		uint32_t queueIndex = ~0;
+	        for (uint32_t qfpIndex = 0; qfpIndex < queueFamilyProperties.size(); qfpIndex++) {
+			if ((queueFamilyProperties[qfpIndex].queueFlags & vk::QueueFlagBits::eGraphics) &&
+				physicalDevice.getSurfaceSupportKHR(qfpIndex, *surface)) {
+				queueIndex = qfpIndex;
+				break;
+			}
+		}
+		if (queueIndex == ~0) {
+	            throw std::runtime_error("Unable to find a suitable queue in createLogicalDevice");
+		}
 		const float queuePriority = 0.5;
 
 		vk::DeviceQueueCreateInfo deviceQueueCreateInfo {
-			.queueFamilyIndex = static_cast<uint32_t>(graphicsQueueIndex),
+			.queueFamilyIndex = queueIndex,
 			.queueCount = 1,
 			.pQueuePriorities = &queuePriority
 		};
@@ -115,7 +120,7 @@ class Engine
 		};
 
 		device = vk::raii::Device(physicalDevice, deviceCreateInfo);
-	        graphicsQueue = vk::raii::Queue(device, graphicsQueueIndex, 0);
+	        graphicsQueue = vk::raii::Queue(device, queueIndex, 0);
 	}
 
 	vk::raii::PhysicalDevice physicalDevice = nullptr;
