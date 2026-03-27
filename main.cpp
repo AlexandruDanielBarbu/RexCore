@@ -8,6 +8,7 @@
 #include <stdexcept> // report and propagate erros
 #include <cstdlib>   // EXIT_FAILURE; EXIT_SUCCESS
 #include <algorithm> // ranges
+#include <vector>    // vector
 
 constexpr uint32_t WIDTH          = 800;
 constexpr uint32_t HEIGHT         = 800;
@@ -119,6 +120,10 @@ class Engine
 			.ppEnabledExtensionNames = requiredDeviceExtensions.data()
 		};
 
+		auto surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR(*surface);
+		std::vector<vk::SurfaceFormatKHR> availableFormats = physicalDevice.getSurfaceFormatsKHR(surface);
+		std::vector<vk::PresentModeKHR>   availablePresentModes = physicalDevice.getSurfacePresentModesKHR(surface);
+		
 		device = vk::raii::Device(physicalDevice, deviceCreateInfo);
 	        graphicsQueue = vk::raii::Queue(device, queueIndex, 0);
 	}
