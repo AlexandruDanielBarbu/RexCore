@@ -128,6 +128,32 @@ class Engine
 	        graphicsQueue = vk::raii::Queue(device, queueIndex, 0);
 	}
 
+	inline vk::SurfaceFormatKHR chooseSwapChainSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats) {
+		assert(!availableFormats.empty());
+
+		const auto formatIt = std::ranges::find_if(
+			availableFormats,
+			[](const auto& format){
+			    return format.format == vk::Format::eB8G8R8A8Srgb && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear;
+			});
+		return formatIt != availableFormats.end() ? *formatIt : availableFormats[0];
+	}
+
+	/**
+	* @returns always vk::PresentModeKHR::eFifo or fails the assert
+	*/
+	inline vk::PresentModeKHR chooseSwapChainPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes) {
+		auto presentModeIt = std::ranges::find_if(
+			availablePresentModes,
+			[](const auto &presentMode) {
+				return presentMode == vk::PresentModeKHR::eFifo;
+			});
+
+		assert(presentModeIt != availablePresentModes.end());
+
+		return *presentModeIt;
+	}
+
 	vk::raii::PhysicalDevice physicalDevice = nullptr;
 	void pickPhysicalDevice() {
 		auto physicalDevices = instance.enumeratePhysicalDevices();
