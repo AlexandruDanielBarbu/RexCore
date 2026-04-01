@@ -9,6 +9,8 @@
 #include <cstdlib>   // EXIT_FAILURE; EXIT_SUCCESS
 #include <algorithm> // ranges
 #include <vector>    // vector
+#include <limits>    // std::numeric_limits
+#include <algorithm> // std::clamp
 
 constexpr uint32_t WIDTH          = 800;
 constexpr uint32_t HEIGHT         = 800;
@@ -65,6 +67,43 @@ class Engine
 		createSurface();
 		pickPhysicalDevice();
 		createLogicalDevice();
+		createSwapChain();
+	}
+
+	vk::raii::SwapchainKHR swapChain = nullptr;
+	std::vector<vk::Image> swapChainImages;
+	vk::SurfaceFormatKHR   swapChainSurfaceFormat;
+	vk::Extent2D           swapChainExtent;
+	void createSwapChain() {
+		auto surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR(*surface);
+		swapChainExtent          = chooseSwapChainExtent(surfaceCapabilities);
+		uint32_t minImageCount = surfaceCapabilities.minImageCount + 1 > surfaceCapabilities.maxImageCount ? surfaceCapabilities.maxImageCount : surfaceCapabilities.minImageCount + 1;
+		
+		std::vector<vk::SurfaceFormatKHR> availableFormats      = physicalDevice.getSurfaceFormatsKHR(*surface);
+		swapChainSurfaceFormat = chooseSwapChainSurfaceFormat(availableFormats);
+		
+		std::vector<vk::PresentModeKHR>   availablePresentModes = physicalDevice.getSurfacePresentModesKHR(surface);
+
+		vk::SwapchainCreateInfoKHR swapChainCreateInfo {
+			.surface	  = *surface,
+
+			.minImageCount    = minImageCount,
+			.imageFormat      = swapChainSurfaceFormat.format,
+			.imageColorSpace  = swapChainSurfaceFormat.colorSpace,
+			.imageExtent      = swapChainExtent,
+			
+			.imageArrayLayers = 1,
+			
+			.imageUsage       = vk::ImageUsageFlagBits::eColorAttachment,
+			.imageSharingMode = vk::SharingMode::eExclusive,
+			.preTransform     = surfaceCapabilities.currentTransform,
+			.compositeAlpha   = vk::CompositeAlphaFlagBitsKHR::eOpaque,
+			.presentMode      = chooseSwapChainPresentMode(availablePresentModes),
+			.clipped          = true
+		};
+
+		swapChain = vk::raii::SwapchainKHR(device, swapChainCreateInfo);
+		swapChainImages = swapChain.getImages();
 	}
 
 	vk::raii::SurfaceKHR surface = nullptr;
@@ -119,10 +158,6 @@ class Engine
 			.enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()),
 			.ppEnabledExtensionNames = requiredDeviceExtensions.data()
 		};
-
-		auto surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR(*surface);
-		std::vector<vk::SurfaceFormatKHR> availableFormats = physicalDevice.getSurfaceFormatsKHR(surface);
-		std::vector<vk::PresentModeKHR>   availablePresentModes = physicalDevice.getSurfacePresentModesKHR(surface);
 		
 		device = vk::raii::Device(physicalDevice, deviceCreateInfo);
 	        graphicsQueue = vk::raii::Queue(device, queueIndex, 0);
@@ -152,6 +187,19 @@ class Engine
 		assert(presentModeIt != availablePresentModes.end());
 
 		return *presentModeIt;
+	}
+
+	inline vk::Extent2D chooseSwapChainExtent(const vk::SurfaceCapabilitiesKHR& capabilities) {
+		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
+			return capabilities.currentExtent;
+		
+		int width, height;
+		glfwGetFramebufferSize(window, &width, &height);
+
+		return {
+		    std::clamp<uint32_t>(width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
+		    std::clamp<uint32_t>(height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
+		};
 	}
 
 	vk::raii::PhysicalDevice physicalDevice = nullptr;
