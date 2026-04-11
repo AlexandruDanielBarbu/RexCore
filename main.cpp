@@ -46,6 +46,7 @@ class Engine
 		mainLoop();
 		cleanup();
 	}
+
   private:
 	GLFWwindow *window = nullptr;
 	void initWindow() {
@@ -68,6 +69,24 @@ class Engine
 		pickPhysicalDevice();
 		createLogicalDevice();
 		createSwapChain();
+		createImageViews();
+	}
+	
+	std::vector<vk::raii::ImageView> swapChainImageViews;
+	void createImageViews() {
+		assert(swapChainImageViews.empty());
+
+		vk::ImageViewCreateInfo imageViewCreateInfo {
+			.viewType = vk::ImageViewType::e2D,
+			.format   = swapChainSurfaceFormat.format,
+			.components = {vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity},
+			.subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}
+		};
+
+		for (const auto &image : swapChainImages) {
+			imageViewCreateInfo.image = image;
+			swapChainImageViews.emplace_back(device, imageViewCreateInfo);
+		}
 	}
 
 	vk::raii::SwapchainKHR swapChain = nullptr;
