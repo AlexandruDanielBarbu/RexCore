@@ -103,26 +103,27 @@ function (add_shaders_target TARGET)
 endfunction ()
 
 function (add_slang_shader_target TARGET)
-  cmake_parse_arguments ("SHADER" "" "CHAPTER_NAME" "SOURCES" ${ARGN})
-  set (SHADERS_DIR ${SHADER_CHAPTER_NAME}/shaders)
-  file(GLOB HAS_COMPUTE ${CHAPTER_SHADER}.comp)
+  cmake_parse_arguments ("SHADER" "" "" "SOURCES" ${ARGN})
+  
+  # Set output to the current build directory (no subfolders)
+  set (OUTPUT_SPV ${CMAKE_CURRENT_BINARY_DIR}/slang.spv)
   set (ENTRY_POINTS -entry vertMain -entry fragMain)
-  if(HAS_COMPUTE)
-    list(APPEND ENTRY_POINTS -entry compMain)
-  endif()
+
   add_custom_command (
-          OUTPUT ${SHADERS_DIR}
-          COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DIR}
-  )
-  add_custom_command (
-          OUTPUT  ${SHADERS_DIR}/slang.spv
-          COMMAND ${SLANGC_EXECUTABLE} ${SHADER_SOURCES} -target spirv -profile spirv_1_4+spvRayQueryKHR -emit-spirv-directly -fvk-use-entrypoint-name ${ENTRY_POINTS} -o slang.spv
-          WORKING_DIRECTORY ${SHADERS_DIR}
-          DEPENDS ${SHADERS_DIR} ${SHADER_SOURCES}
-          COMMENT "Compiling Slang Shaders"
+          OUTPUT  ${OUTPUT_SPV}
+          COMMAND ${SLANGC_EXECUTABLE} ${SHADER_SOURCES} 
+                  -target spirv 
+                  -profile spirv_1_4+spvRayQueryKHR 
+                  -emit-spirv-directly 
+                  -fvk-use-entrypoint-name ${ENTRY_POINTS} 
+                  -o ${OUTPUT_SPV}
+          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+          DEPENDS ${SHADER_SOURCES}
+          COMMENT "Compiling Slang Shader: ${SHADER_SOURCES}"
           VERBATIM
   )
-  add_custom_target (${TARGET} DEPENDS ${SHADERS_DIR}/slang.spv)
+
+  add_custom_target (${TARGET} DEPENDS ${OUTPUT_SPV})
 endfunction()
 
 function (add_chapter CHAPTER_NAME)
@@ -158,18 +159,20 @@ function (add_chapter CHAPTER_NAME)
   endif()
 
   if (DEFINED CHAPTER_SHADER)
-    set (CHAPTER_SHADER_TARGET ${CHAPTER_NAME}_shader)
-    file (GLOB SHADER_SOURCES ${CHAPTER_SHADER}.frag ${CHAPTER_SHADER}.vert ${CHAPTER_SHADER}.comp)
-    add_shaders_target (${CHAPTER_SHADER_TARGET} CHAPTER_NAME ${CHAPTER_NAME} SOURCES ${SHADER_SOURCES})
-    add_dependencies (${CHAPTER_NAME} ${CHAPTER_SHADER_TARGET})
-
     set (CHAPTER_SHADER_SLANG_TARGET ${CHAPTER_NAME}_slang_shader)
-    file (GLOB SHADER_SLANG_SOURCES ${CHAPTER_SHADER}.slang)
+    
+    # Find the .slang file based on the prefix provided to add_chapter
+    file (GLOB SHADER_SLANG_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/${CHAPTER_SHADER}.slang")
+    
     if(SHADER_SLANG_SOURCES)
-      add_slang_shader_target( ${CHAPTER_SHADER_SLANG_TARGET} CHAPTER_NAME ${CHAPTER_NAME} SOURCES ${SHADER_SLANG_SOURCES})
+      # 1. Call the simplified target (no CHAPTER_NAME argument passed)
+      add_slang_shader_target(${CHAPTER_SHADER_SLANG_TARGET} SOURCES ${SHADER_SLANG_SOURCES})
+      
+      # 2. Add dependency so the main executable waits for the shader compilation
       add_dependencies(${CHAPTER_NAME} ${CHAPTER_SHADER_SLANG_TARGET})
     endif()
   endif ()
+
   if (DEFINED CHAPTER_LIBS)
     target_link_libraries (${CHAPTER_NAME} ${CHAPTER_LIBS})
   endif ()
@@ -183,4 +186,4 @@ function (add_chapter CHAPTER_NAME)
   endif ()
 endfunction ()
 
-add_chapter (main)
+add_chapter (main SHADER "shaders/shader")

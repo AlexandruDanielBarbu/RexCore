@@ -70,8 +70,13 @@ class Engine
 		createLogicalDevice();
 		createSwapChain();
 		createImageViews();
+		createGraphicsPipeline();
 	}
 	
+	void createGraphicsPipeline() {
+	
+	}
+
 	std::vector<vk::raii::ImageView> swapChainImageViews;
 	void createImageViews() {
 		assert(swapChainImageViews.empty());
