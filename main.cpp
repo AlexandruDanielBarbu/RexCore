@@ -11,6 +11,7 @@
 #include <vector>    // vector
 #include <limits>    // std::numeric_limits
 #include <algorithm> // std::clamp
+#include <fstream>   // for shader binary loading
 
 constexpr uint32_t WIDTH          = 800;
 constexpr uint32_t HEIGHT         = 800;
@@ -36,6 +37,24 @@ static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSever
 	return vk::False;
 }
 
+
+static std::vector<char> readFile(const std::string &fileName)
+{
+	std::ifstream file(fileName, std::ios::ate | std::ios::binary);
+
+	if (!file.is_open()) {
+		throw std::runtime_error("failed to open file!");
+	}
+
+	std::vector<char> buffer(file.tellg());
+	
+	file.seekg(0, std::ios::beg);
+	file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+
+	file.close();
+
+	return buffer;
+}
 
 class Engine
 {
@@ -74,7 +93,7 @@ class Engine
 	}
 	
 	void createGraphicsPipeline() {
-	
+		auto shaderCode = readFile("slang.spv");
 	}
 
 	std::vector<vk::raii::ImageView> swapChainImageViews;

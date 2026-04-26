@@ -13,7 +13,7 @@ find_package (stb REQUIRED)
 
 find_program(SLANGC_EXECUTABLE slangc HINTS $ENV{VULKAN_SDK}/bin REQUIRED)
 
-set(SHADER_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shader/shader.slang")
+set(SHADER_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders/shader.slang")
 set(SHADER_BINARY "${CMAKE_CURRENT_BINARY_DIR}/slang.spv")
 
 add_custom_command(
