@@ -92,8 +92,34 @@ class Engine
 		createGraphicsPipeline();
 	}
 	
+	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const
+	{
+		vk::ShaderModuleCreateInfo createInfo{
+		    .codeSize = code.size() * sizeof(char),
+		    .pCode    = reinterpret_cast<const uint32_t *>(code.data())};
+
+		vk::raii::ShaderModule shaderModule(device, createInfo);
+
+		return shaderModule;
+	}
+
 	void createGraphicsPipeline() {
 		auto shaderCode = readFile("slang.spv");
+		auto shaderModule = createShaderModule(shaderCode);
+
+		vk::PipelineShaderStageCreateInfo vertexShaderStageInfo{
+		    .stage  = vk::ShaderStageFlagBits::eVertex,
+		    .module = shaderModule,
+		    .pName  = "vertMain"};
+
+		vk::PipelineShaderStageCreateInfo fragmentShaderStageInfo{
+		    .stage  = vk::ShaderStageFlagBits::eFragment,
+		    .module = shaderModule,
+		    .pName  = "fragMain"};
+
+		vk::PipelineShaderStageCreateInfo shaderStages[] = {
+		    vertexShaderStageInfo,
+		    fragmentShaderStageInfo};
 	}
 
 	std::vector<vk::raii::ImageView> swapChainImageViews;
@@ -125,7 +151,7 @@ class Engine
 		std::vector<vk::SurfaceFormatKHR> availableFormats      = physicalDevice.getSurfaceFormatsKHR(*surface);
 		swapChainSurfaceFormat = chooseSwapChainSurfaceFormat(availableFormats);
 		
-		std::vector<vk::PresentModeKHR>   availablePresentModes = physicalDevice.getSurfacePresentModesKHR(surface);
+		std::vector<vk::PresentModeKHR>   availablePresentModes = physicalDevice.getSurfacePresentModesKHR(*surface);
 
 		vk::SwapchainCreateInfoKHR swapChainCreateInfo {
 			.surface	  = *surface,
