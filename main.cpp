@@ -104,6 +104,7 @@ class Engine
 	}
 
 	void createGraphicsPipeline() {
+		// Shader Module
 		auto shaderCode = readFile("slang.spv");
 		auto shaderModule = createShaderModule(shaderCode);
 
@@ -120,6 +121,34 @@ class Engine
 		vk::PipelineShaderStageCreateInfo shaderStages[] = {
 		    vertexShaderStageInfo,
 		    fragmentShaderStageInfo};
+
+		//Fixed Pipeline Stages
+		vk::PipelineVertexInputStateCreateInfo vertexInputStateInfo;
+		
+		vk::PipelineInputAssemblyStateCreateInfo inputeAssemblerInfo{
+		    .topology = vk::PrimitiveTopology::eTriangleList};
+
+		vk::Viewport viewport{
+			0.0f, 0.0f,
+			static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height),
+		        0.0f, 1.0f};
+		
+		vk::Rect2D scissor{
+		    vk::Offset2D{0, 0},
+		    swapChainExtent};
+		
+		std::vector<vk::DynamicState> dynamicStates = {
+		    vk::DynamicState::eViewport,
+		    vk::DynamicState::eScissor};
+		
+		vk::PipelineDynamicStateCreateInfo dynamicStateInfo{
+		    .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+		    .pDynamicStates    = dynamicStates.data()};
+
+		vk::PipelineViewportStateCreateInfo viewportStateInfo{
+		    .viewportCount = 1,
+		    .scissorCount  = 1};
+		
 	}
 
 	std::vector<vk::raii::ImageView> swapChainImageViews;
@@ -210,10 +239,11 @@ class Engine
 		};
 
 		// Features wanted from the queue
-		vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> featureChain = {
+        vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT, vk::PhysicalDeviceVulkan11Features> featureChain = {
 			{},
 			{.dynamicRendering = true},
-			{.extendedDynamicState = true}
+			{.extendedDynamicState = true},
+			{.shaderDrawParameters = true}
 		};
 
 		const std::array<const char *, 1> requiredDeviceExtensions = {vk::KHRSwapchainExtensionName};
@@ -425,6 +455,8 @@ class Engine
 	void mainLoop() {
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
+			
+			std::cout << "All works fine!" << std::endl;
 		}
 	}
 	void cleanup() {
