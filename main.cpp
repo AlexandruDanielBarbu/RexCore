@@ -103,7 +103,8 @@ class Engine
 		return shaderModule;
 	}
 
-	vk::raii::PipelineLayout pipelineLayout = nullptr;
+	vk::raii::PipelineLayout pipelineLayout   = nullptr;
+	vk::raii::Pipeline       graphicsPipeline = nullptr;
 	void createGraphicsPipeline() {
 		// Shader Module
 		auto shaderCode = readFile("slang.spv");
@@ -191,6 +192,8 @@ class Engine
 		        .layout              = pipelineLayout,
 		        .renderPass          = nullptr},
 			{.colorAttachmentCount = 1, .pColorAttachmentFormats = &swapChainSurfaceFormat.format}};
+
+		graphicsPipeline = vk::raii::Pipeline(device, nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
 	}
 
 	std::vector<vk::raii::ImageView> swapChainImageViews;
