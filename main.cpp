@@ -103,6 +103,7 @@ class Engine
 		return shaderModule;
 	}
 
+	vk::raii::PipelineLayout pipelineLayout = nullptr;
 	void createGraphicsPipeline() {
 		// Shader Module
 		auto shaderCode = readFile("slang.spv");
@@ -148,7 +149,31 @@ class Engine
 		vk::PipelineViewportStateCreateInfo viewportStateInfo{
 		    .viewportCount = 1,
 		    .scissorCount  = 1};
+
+		vk::PipelineRasterizationStateCreateInfo rasterizationStateInfo{
+		    .depthClampEnable        = vk::False,
+		    .rasterizerDiscardEnable = vk::False,
+		    .polygonMode             = vk::PolygonMode::eFill,
+		    .cullMode                = vk::CullModeFlagBits::eBack,
+		    .frontFace               = vk::FrontFace::eClockwise,
+		    .depthBiasEnable         = vk::False,
+		    .lineWidth               = 1.0f};
+
+		vk::PipelineMultisampleStateCreateInfo multisampleStateInfo{
+		    .rasterizationSamples = vk::SampleCountFlagBits::e1,
+		    .sampleShadingEnable     = vk::False};
 		
+		vk::PipelineDepthStencilStateCreateInfo depthStencilStateInfo{};
+
+		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+		    .blendEnable    = vk::False,
+		    .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA};
+	
+		vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo{
+			.setLayoutCount         = 0,
+		        .pushConstantRangeCount = 0};
+
+		pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutCreateInfo);
 	}
 
 	std::vector<vk::raii::ImageView> swapChainImageViews;
@@ -453,10 +478,10 @@ class Engine
 	}
 	
 	void mainLoop() {
+		std::cout << "All works fine!" << std::endl;
+		
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
-			
-			std::cout << "All works fine!" << std::endl;
 		}
 	}
 	void cleanup() {
