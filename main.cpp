@@ -168,12 +168,29 @@ class Engine
 		vk::PipelineColorBlendAttachmentState colorBlendAttachment{
 		    .blendEnable    = vk::False,
 		    .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA};
-	
+
+		vk::PipelineColorBlendStateCreateInfo colorBlending{
+		    .logicOpEnable = vk::False, .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment};
+
 		vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo{
-			.setLayoutCount         = 0,
-		        .pushConstantRangeCount = 0};
+		    .setLayoutCount         = 0,
+		    .pushConstantRangeCount = 0};
 
 		pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutCreateInfo);
+
+		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
+			{.stageCount          = 2,
+		        .pStages             = shaderStages,
+		        .pVertexInputState   = &vertexInputStateInfo,
+		        .pInputAssemblyState = &inputeAssemblerInfo,
+		        .pViewportState      = &viewportStateInfo,
+			.pRasterizationState = &rasterizationStateInfo,
+		        .pMultisampleState   = &multisampleStateInfo,
+		        .pColorBlendState    = &colorBlending,
+		        .pDynamicState       = &dynamicStateInfo,
+		        .layout              = pipelineLayout,
+		        .renderPass          = nullptr},
+			{.colorAttachmentCount = 1, .pColorAttachmentFormats = &swapChainSurfaceFormat.format}};
 	}
 
 	std::vector<vk::raii::ImageView> swapChainImageViews;
