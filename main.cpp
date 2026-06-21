@@ -90,8 +90,50 @@ class Engine
 		createSwapChain();
 		createImageViews();
 		createGraphicsPipeline();
+		createCommandPool();
+		createCommandBuffer();
 	}
 	
+	vk::raii::CommandBuffer commandBuffer = nullptr;
+	void createCommandBuffer()
+	{
+		vk::CommandBufferAllocateInfo commandBufferAllocInfo{
+		    .commandPool        = commandPool,
+		    .level              = vk::CommandBufferLevel::ePrimary,
+		    .commandBufferCount = 1};
+
+		commandBuffer = std::move(vk::raii::CommandBuffers(device, commandBufferAllocInfo).front());
+
+	}
+
+	vk::raii::CommandPool commandPool = nullptr;
+	void createCommandPool()
+	{
+		std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+		uint32_t queueIndex = ~0;
+		for (uint32_t qfpIndex = 0; qfpIndex < queueFamilyProperties.size(); qfpIndex++)
+		{
+			if ((queueFamilyProperties[qfpIndex].queueFlags & vk::QueueFlagBits::eGraphics) &&
+			    physicalDevice.getSurfaceSupportKHR(qfpIndex, *surface))
+			{
+				queueIndex = qfpIndex;
+				break;
+			}
+		}
+		if (queueIndex == ~0)
+		{
+			throw std::runtime_error("Unable to find a suitable queue in createLogicalDevice");
+		}
+
+		// Litle hack to get the queueIndex back
+		vk::CommandPoolCreateInfo commandPoolCreateInfo{
+		    .flags            = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+		    .queueFamilyIndex = queueIndex};
+
+		commandPool = vk::raii::CommandPool(device, commandPoolCreateInfo);
+
+	}
+
 	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const
 	{
 		vk::ShaderModuleCreateInfo createInfo{
@@ -284,7 +326,7 @@ class Engine
 		};
 
 		// Features wanted from the queue
-        vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT, vk::PhysicalDeviceVulkan11Features> featureChain = {
+		vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT, vk::PhysicalDeviceVulkan11Features> featureChain = {
 			{},
 			{.dynamicRendering = true},
 			{.extendedDynamicState = true},
