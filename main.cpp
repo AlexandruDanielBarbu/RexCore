@@ -426,7 +426,10 @@ class Engine
 		// Features wanted from the queue
 		vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT, vk::PhysicalDeviceVulkan11Features> featureChain = {
 			{},
-			{.dynamicRendering = true},
+			{
+				.synchronization2 = true,
+				.dynamicRendering = true,
+		        },
 			{.extendedDynamicState = true},
 			{.shaderDrawParameters = true}
 		};
@@ -644,10 +647,44 @@ class Engine
 			glfwPollEvents();
 			drawFrame();
 		}
+
+		device.waitIdle();
 	}
 
 	void drawFrame()
 	{
+		auto fenceRes = device.waitForFences(*drawFence, vk::True, UINT64_MAX);
+		if (fenceRes != vk::Result::eSuccess)
+		{
+			throw std::runtime_error("failed to wait for fence!");
+		}
+		device.resetFences(*drawFence);
+
+		auto [res, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphore, nullptr);
+		if (res != vk::Result::eSuccess)
+		{
+			//throw std::runtime_error("failed to wait for swapchain image!");
+		}
+		recordCommandBuffer(imageIndex);
+
+		vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		const vk::SubmitInfo   submitInfo{.waitSemaphoreCount   = 1,
+		                                  .pWaitSemaphores      = &*presentCompleteSemaphore,
+		                                  .pWaitDstStageMask    = &waitDestinationStageMask,
+		                                  .commandBufferCount   = 1,
+		                                  .pCommandBuffers      = &*commandBuffer,
+		                                  .signalSemaphoreCount = 1,
+		                                  .pSignalSemaphores    = &*renderFinishedSemaphore};
+		graphicsQueue.submit(submitInfo, *drawFence);
+
+		const vk::PresentInfoKHR presentInfoKHR{
+		    .waitSemaphoreCount = 1,
+		    .pWaitSemaphores    = &*renderFinishedSemaphore,
+		    .swapchainCount     = 1,
+		    .pSwapchains        = &*swapChain,
+		    .pImageIndices      = &imageIndex};
+
+		auto result = graphicsQueue.presentKHR(presentInfoKHR);
 
 	}
 	void cleanup() {
