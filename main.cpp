@@ -16,6 +16,7 @@
 constexpr uint32_t WIDTH          = 800;
 constexpr uint32_t HEIGHT         = 800;
 constexpr char     WINDOW_TITLE[] = "Rex Core";
+constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::array<char const *, 1> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
@@ -91,20 +92,31 @@ class Engine
 		createImageViews();
 		createGraphicsPipeline();
 		createCommandPool();
-		createCommandBuffer();
+		createCommandBuffers();
 		createSyncObjects();
 	}
 	
-	vk::raii::Semaphore presentCompleteSemaphore = nullptr;
-	vk::raii::Semaphore renderFinishedSemaphore  = nullptr;
-	vk::raii::Fence     drawFence                = nullptr;
+	std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
+	std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
+	std::vector<vk::raii::Fence>     inFlightFences;
 	void createSyncObjects()
 	{
-		presentCompleteSemaphore = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo());
-		renderFinishedSemaphore  = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo());
-		drawFence                = vk::raii::Fence(device, {.flags = vk::FenceCreateFlagBits::eSignaled});
+		assert(
+		    presentCompleteSemaphores.empty() &&
+		    renderFinishedSemaphores.empty() &&
+		    inFlightFences.empty());
+
+		for (size_t i = 0; i < swapChainImages.size(); i++) {
+			renderFinishedSemaphores.emplace_back(device, vk::SemaphoreCreateInfo());
+		}
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			presentCompleteSemaphores.emplace_back(device, vk::SemaphoreCreateInfo());
+			inFlightFences.emplace_back(device, vk::FenceCreateInfo{.flags = vk::FenceCreateFlagBits::eSignaled});
+		}
 	}
 
+	uint32_t frameIndex = 0;
 	void transition_image_layout(
 	    uint32_t                imageIndex,
 	    vk::ImageLayout         old_layout,
@@ -134,12 +146,12 @@ class Engine
 		    .dependencyFlags         = {},
 		    .imageMemoryBarrierCount = 1,
 		    .pImageMemoryBarriers    = &barrier};
-		commandBuffer.pipelineBarrier2(dependencyInfo);
+		commandBuffers[frameIndex].pipelineBarrier2(dependencyInfo);
 	}
 
 	void recordCommandBuffer(uint32_t imageIndex)
 	{
-		commandBuffer.begin({});
+		commandBuffers[frameIndex].begin({});
 
 		// Before starting rendering, transition the swapchain image to vk::ImageLayout::eColorAttachmentOptimal
 		transition_image_layout(
@@ -167,16 +179,16 @@ class Engine
 		    .colorAttachmentCount = 1,
 		    .pColorAttachments    = &attachmentInfo};
 
-		commandBuffer.beginRendering(renderingInfo);
+		commandBuffers[frameIndex].beginRendering(renderingInfo);
 
-		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
+		commandBuffers[frameIndex].bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
 
-		commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
-		commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
+		commandBuffers[frameIndex].setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
+		commandBuffers[frameIndex].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
 
-		commandBuffer.draw(3, 1, 0, 0);
+		commandBuffers[frameIndex].draw(3, 1, 0, 0);
 
-		commandBuffer.endRendering();
+		commandBuffers[frameIndex].endRendering();
 
 		// After rendering, transition the swapchain image to vk::ImageLayout::ePresentSrcKHR
 		transition_image_layout(
@@ -189,17 +201,17 @@ class Engine
 		    vk::PipelineStageFlagBits2::eBottomOfPipe                  // dstStage
 		);
 
-		commandBuffer.end();
+		commandBuffers[frameIndex].end();
 	}
 
-	vk::raii::CommandBuffer commandBuffer = nullptr;
-	void createCommandBuffer() {
+	std::vector<vk::raii::CommandBuffer> commandBuffers;
+	void createCommandBuffers() {
 		vk::CommandBufferAllocateInfo commandBufferAllocInfo{
 		    .commandPool        = commandPool,
 		    .level              = vk::CommandBufferLevel::ePrimary,
-		    .commandBufferCount = 1};
+		    .commandBufferCount = MAX_FRAMES_IN_FLIGHT};
 
-		commandBuffer = std::move(vk::raii::CommandBuffers(device, commandBufferAllocInfo).front());
+		commandBuffers = vk::raii::CommandBuffers(device, commandBufferAllocInfo);
 	}
 
 	vk::raii::CommandPool commandPool = nullptr;
@@ -654,40 +666,38 @@ class Engine
 		device.waitIdle();
 	}
 
-	void drawFrame()
-	{
-		auto fenceRes = device.waitForFences(*drawFence, vk::True, UINT64_MAX);
+	void drawFrame() {
+		auto fenceRes = device.waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
 		if (fenceRes != vk::Result::eSuccess) {
 			throw std::runtime_error("failed to wait for fence!");
 		}
-		device.resetFences(*drawFence);
+		device.resetFences(*inFlightFences[frameIndex]);
 
-		auto [res, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphore, nullptr);
-		if (res != vk::Result::eSuccess) {
-			//throw std::runtime_error("failed to wait for swapchain image!");
-		}
+		auto [res, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
 		recordCommandBuffer(imageIndex);
 
 		vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
 		const vk::SubmitInfo   submitInfo{.waitSemaphoreCount   = 1,
-		                                  .pWaitSemaphores      = &*presentCompleteSemaphore,
+		                                  .pWaitSemaphores      = &*presentCompleteSemaphores[frameIndex],
 		                                  .pWaitDstStageMask    = &waitDestinationStageMask,
 		                                  .commandBufferCount   = 1,
-		                                  .pCommandBuffers      = &*commandBuffer,
+		                                  .pCommandBuffers      = &*commandBuffers[frameIndex],
 		                                  .signalSemaphoreCount = 1,
-		                                  .pSignalSemaphores    = &*renderFinishedSemaphore};
-		graphicsQueue.submit(submitInfo, *drawFence);
+		                                  .pSignalSemaphores    = &*renderFinishedSemaphores[imageIndex]};
+		graphicsQueue.submit(submitInfo, *inFlightFences[frameIndex]);
 
 		const vk::PresentInfoKHR presentInfoKHR{
 		    .waitSemaphoreCount = 1,
-		    .pWaitSemaphores    = &*renderFinishedSemaphore,
+		    .pWaitSemaphores    = &*renderFinishedSemaphores[imageIndex],
 		    .swapchainCount     = 1,
 		    .pSwapchains        = &*swapChain,
 		    .pImageIndices      = &imageIndex};
 
 		auto result = graphicsQueue.presentKHR(presentInfoKHR);
 
+		frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
+
 	void cleanup() {
 		glfwDestroyWindow(window);
 		glfwTerminate();
