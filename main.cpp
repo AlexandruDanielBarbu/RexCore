@@ -7,8 +7,8 @@
 #include <iostream>  // report and propagate erros
 #include <stdexcept> // report and propagate erros
 #include <cstdlib>   // EXIT_FAILURE; EXIT_SUCCESS
-#include <algorithm> // ranges
-#include <vector>    // vector
+#include <algorithm> // std::ranges
+#include <vector>    // std::vector
 #include <limits>    // std::numeric_limits
 #include <algorithm> // std::clamp
 #include <fstream>   // for shader binary loading
@@ -193,20 +193,18 @@ class Engine
 	}
 
 	vk::raii::CommandBuffer commandBuffer = nullptr;
-	void createCommandBuffer()
-	{
+	void createCommandBuffer() {
 		vk::CommandBufferAllocateInfo commandBufferAllocInfo{
 		    .commandPool        = commandPool,
 		    .level              = vk::CommandBufferLevel::ePrimary,
 		    .commandBufferCount = 1};
 
 		commandBuffer = std::move(vk::raii::CommandBuffers(device, commandBufferAllocInfo).front());
-
 	}
 
 	vk::raii::CommandPool commandPool = nullptr;
-	void createCommandPool()
-	{
+	void createCommandPool() {
+		// Litle hack to get the queueIndex back
 		std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
 		uint32_t queueIndex = ~0;
 		for (uint32_t qfpIndex = 0; qfpIndex < queueFamilyProperties.size(); qfpIndex++)
@@ -223,7 +221,6 @@ class Engine
 			throw std::runtime_error("Unable to find a suitable queue in createLogicalDevice");
 		}
 
-		// Litle hack to get the queueIndex back
 		vk::CommandPoolCreateInfo commandPoolCreateInfo{
 		    .flags            = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
 		    .queueFamilyIndex = queueIndex};
@@ -272,8 +269,11 @@ class Engine
 
 		vk::Viewport viewport{
 			0.0f, 0.0f,
-			static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height),
-		        0.0f, 1.0f};
+			
+			static_cast<float>(swapChainExtent.width),
+			static_cast<float>(swapChainExtent.height),
+		        
+			0.0f, 1.0f};
 		
 		vk::Rect2D scissor{
 		    vk::Offset2D{0, 0},
@@ -424,7 +424,11 @@ class Engine
 		};
 
 		// Features wanted from the queue
-		vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT, vk::PhysicalDeviceVulkan11Features> featureChain = {
+		vk::StructureChain<
+			vk::PhysicalDeviceFeatures2,
+			vk::PhysicalDeviceVulkan13Features,
+			vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
+			vk::PhysicalDeviceVulkan11Features> featureChain = {
 			{},
 			{
 				.synchronization2 = true,
@@ -611,8 +615,7 @@ class Engine
 		        
 			// GLFW extensions
 			.enabledExtensionCount   = static_cast<uint32_t>(requiredExtensions.size()),
-		        .ppEnabledExtensionNames = requiredExtensions.data()
-		};
+		        .ppEnabledExtensionNames = requiredExtensions.data()};
 
 		instance = vk::raii::Instance(context, createInfo);
 	}
@@ -654,15 +657,13 @@ class Engine
 	void drawFrame()
 	{
 		auto fenceRes = device.waitForFences(*drawFence, vk::True, UINT64_MAX);
-		if (fenceRes != vk::Result::eSuccess)
-		{
+		if (fenceRes != vk::Result::eSuccess) {
 			throw std::runtime_error("failed to wait for fence!");
 		}
 		device.resetFences(*drawFence);
 
 		auto [res, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphore, nullptr);
-		if (res != vk::Result::eSuccess)
-		{
+		if (res != vk::Result::eSuccess) {
 			//throw std::runtime_error("failed to wait for swapchain image!");
 		}
 		recordCommandBuffer(imageIndex);
