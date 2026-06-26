@@ -82,6 +82,26 @@ class Engine
 		window = glfwCreateWindow(WIDTH, HEIGHT, WINDOW_TITLE, nullptr, nullptr);
 	}
 	
+	vk::raii::Context  context;
+	vk::raii::Instance instance = nullptr;
+	vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
+	vk::raii::SurfaceKHR             surface        = nullptr;
+	vk::raii::PhysicalDevice         physicalDevice = nullptr;
+	vk::raii::Device                 device         = nullptr;
+	vk::raii::Queue                  graphicsQueue  = nullptr;
+	vk::raii::SwapchainKHR           swapChain      = nullptr;
+	std::vector<vk::Image>           swapChainImages;
+	vk::SurfaceFormatKHR             swapChainSurfaceFormat;
+	vk::Extent2D                     swapChainExtent;
+	std::vector<vk::raii::ImageView> swapChainImageViews;
+	vk::raii::PipelineLayout         pipelineLayout   = nullptr;
+	vk::raii::Pipeline               graphicsPipeline = nullptr;
+	vk::raii::CommandPool            commandPool      = nullptr;
+	std::vector<vk::raii::CommandBuffer> commandBuffers;
+	std::vector<vk::raii::Semaphore>     presentCompleteSemaphores;
+	std::vector<vk::raii::Semaphore>     renderFinishedSemaphores;
+	std::vector<vk::raii::Fence>         inFlightFences;
+
 	void initVulkan() {
 		createInstance();
 		setupDebugMessenger();
@@ -96,9 +116,6 @@ class Engine
 		createSyncObjects();
 	}
 	
-	std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
-	std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
-	std::vector<vk::raii::Fence>     inFlightFences;
 	void createSyncObjects()
 	{
 		assert(
@@ -204,7 +221,6 @@ class Engine
 		commandBuffers[frameIndex].end();
 	}
 
-	std::vector<vk::raii::CommandBuffer> commandBuffers;
 	void createCommandBuffers() {
 		vk::CommandBufferAllocateInfo commandBufferAllocInfo{
 		    .commandPool        = commandPool,
@@ -214,7 +230,6 @@ class Engine
 		commandBuffers = vk::raii::CommandBuffers(device, commandBufferAllocInfo);
 	}
 
-	vk::raii::CommandPool commandPool = nullptr;
 	void createCommandPool() {
 		// Litle hack to get the queueIndex back
 		std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
@@ -252,8 +267,6 @@ class Engine
 		return shaderModule;
 	}
 
-	vk::raii::PipelineLayout pipelineLayout   = nullptr;
-	vk::raii::Pipeline       graphicsPipeline = nullptr;
 	void createGraphicsPipeline() {
 		// Shader Module
 		auto shaderCode = readFile("slang.spv");
@@ -348,7 +361,6 @@ class Engine
 		graphicsPipeline = vk::raii::Pipeline(device, nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
 	}
 
-	std::vector<vk::raii::ImageView> swapChainImageViews;
 	void createImageViews() {
 		assert(swapChainImageViews.empty());
 
@@ -365,10 +377,6 @@ class Engine
 		}
 	}
 
-	vk::raii::SwapchainKHR swapChain = nullptr;
-	std::vector<vk::Image> swapChainImages;
-	vk::SurfaceFormatKHR   swapChainSurfaceFormat;
-	vk::Extent2D           swapChainExtent;
 	void createSwapChain() {
 		auto surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR(*surface);
 		swapChainExtent          = chooseSwapChainExtent(surfaceCapabilities);
@@ -401,7 +409,6 @@ class Engine
 		swapChainImages = swapChain.getImages();
 	}
 
-	vk::raii::SurfaceKHR surface = nullptr;
 	void createSurface() {
 		VkSurfaceKHR _surface;
 		if (glfwCreateWindowSurface(*instance, window, nullptr, &_surface) != 0) {
@@ -411,8 +418,6 @@ class Engine
 		surface = vk::raii::SurfaceKHR(instance, _surface);
 	}
 
-	vk::raii::Device device = nullptr;
-	vk::raii::Queue  graphicsQueue = nullptr;
 	void createLogicalDevice() {
 		// Setup for Graphics Queue
 		std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
@@ -505,7 +510,6 @@ class Engine
 		};
 	}
 
-	vk::raii::PhysicalDevice physicalDevice = nullptr;
 	void pickPhysicalDevice() {
 		auto physicalDevices = instance.enumeratePhysicalDevices();
 
@@ -562,8 +566,6 @@ class Engine
 		physicalDevice = *physicalDeviceIt;
 	}
 
-	vk::raii::Context context;
-	vk::raii::Instance instance = nullptr;
 	void createInstance() {
 		// Engine specific cnfiguration
 		constexpr vk::ApplicationInfo appInfo {
@@ -632,7 +634,6 @@ class Engine
 		instance = vk::raii::Instance(context, createInfo);
 	}
 	
-	vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
 	void setupDebugMessenger()
 	{
 		if (!enableValidationLayers) {
