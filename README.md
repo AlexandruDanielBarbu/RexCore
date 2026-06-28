@@ -8,6 +8,22 @@ At its current stage it initializes a Vulkan device, creates a swapchain, and **
 
 <!-- > Development log: https://alexandrudanielbarbu.github.io/RexCore-engine-devlog/ -->
 
+This version (`hello-triangle` branch) contains all the vulkan setup code needed to render a triangle on the screen.
+
+## Index
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Building](#building)
+  - [1. Clone](#1-clone)
+  - [2. Install dependencies](#2-install-dependencies)
+  - [3. Configure and build](#3-configure-and-build)
+  - [4. Run](#4-run)
+- [Project layout](#project-layout)
+- [Sources](#sources)
+- [AI Policy](#ai-policy)
+- [License](#license)
+
 ## Features
 
 - Vulkan 1.3 **dynamic rendering**
@@ -98,12 +114,16 @@ cd out/build/x64-Debug
 Reference material used while building RexCore:
 
 - [Vulkan Documentation](https://docs.vulkan.org/spec/latest/index.html)
-- [Vulkan Tutorial](https://docs.vulkan.org/tutorial/latest/04_Vertex_buffers/00_Vertex_input_description.html)
-<!-- Add further official Vulkan documentation references here -->
+- [Vulkan Tutorial](https://docs.vulkan.org/tutorial/latest/00_Introduction.html)
 
 ## AI Policy
 
-<!-- Describe here how AI tools were used in this project. -->
+The AI tool used is Claude Pro, with a mix of browser and cmd versions of it.
+
+The uses of AI so far were:
+  - restructure the CMake build file
+  - explain concepts such as framebuffers, swapchains, semaphores and fences
+  - debugging **(!! only if the problem persists after a genuine effort on my end of solving the bug!!)**
 
 ## License
 
