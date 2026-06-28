@@ -76,9 +76,6 @@ class Engine
 		// No OpenGL
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		
-		// Window resize turned off
-		//glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
 		// Creating the Window
 		window = glfwCreateWindow(WIDTH, HEIGHT, WINDOW_TITLE, nullptr, nullptr);
 
