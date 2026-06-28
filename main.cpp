@@ -1,4 +1,5 @@
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+#define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
 #include <vulkan/vulkan_raii.hpp>
 
 #define GLFW_INCLUDE_VULKAN
@@ -76,10 +77,19 @@ class Engine
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		
 		// Window resize turned off
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		//glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 		// Creating the Window
 		window = glfwCreateWindow(WIDTH, HEIGHT, WINDOW_TITLE, nullptr, nullptr);
+
+		glfwSetWindowUserPointer(window, this);
+		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+	}
+
+	static void framebufferResizeCallback(GLFWwindow *window, int width, int height)
+	{
+		auto app = reinterpret_cast<Engine *>(glfwGetWindowUserPointer(window));
+		app->framebufferResized = true;
 	}
 	
 	vk::raii::Context  context;
@@ -116,6 +126,30 @@ class Engine
 		createSyncObjects();
 	}
 	
+	void cleanupSwapChain()
+	{
+		swapChainImageViews.clear();
+		swapChain = nullptr;
+	}
+
+	void recreateSwapChain()
+	{
+		int width = 0, height = 0;
+		glfwGetFramebufferSize(window, &width, &height);
+		while (width == 0 || height == 0)
+		{
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwWaitEvents();
+		}
+
+		device.waitIdle();
+
+		cleanupSwapChain();
+
+		createSwapChain();
+		createImageViews();
+	}
+
 	void createSyncObjects()
 	{
 		assert(
@@ -667,14 +701,26 @@ class Engine
 		device.waitIdle();
 	}
 
+	bool framebufferResized = false;
 	void drawFrame() {
 		auto fenceRes = device.waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
 		if (fenceRes != vk::Result::eSuccess) {
 			throw std::runtime_error("failed to wait for fence!");
 		}
-		device.resetFences(*inFlightFences[frameIndex]);
 
 		auto [res, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
+		if (res == vk::Result::eErrorOutOfDateKHR)
+		{
+			recreateSwapChain();
+			return;
+		}
+		if (res != vk::Result::eSuccess && res != vk::Result::eSuboptimalKHR)
+		{
+			assert(res == vk::Result::eTimeout || res == vk::Result::eNotReady);
+			throw std::runtime_error("failed to acquire swap chain image!");
+		}
+		device.resetFences(*inFlightFences[frameIndex]);
+
 		recordCommandBuffer(imageIndex);
 
 		vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -685,6 +731,7 @@ class Engine
 		                                  .pCommandBuffers      = &*commandBuffers[frameIndex],
 		                                  .signalSemaphoreCount = 1,
 		                                  .pSignalSemaphores    = &*renderFinishedSemaphores[imageIndex]};
+		
 		graphicsQueue.submit(submitInfo, *inFlightFences[frameIndex]);
 
 		const vk::PresentInfoKHR presentInfoKHR{
@@ -695,11 +742,23 @@ class Engine
 		    .pImageIndices      = &imageIndex};
 
 		auto result = graphicsQueue.presentKHR(presentInfoKHR);
+		if (result == vk::Result::eSuboptimalKHR || result == vk::Result::eErrorOutOfDateKHR || framebufferResized)
+		{
+			framebufferResized = false;
+			recreateSwapChain();
+		}
+		else
+		{
+			// Code should not hang here in normal use
+			assert(result == vk::Result::eSuccess);
+		}
 
 		frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
 	void cleanup() {
+		cleanupSwapChain();
+
 		glfwDestroyWindow(window);
 		glfwTerminate();
 	}
@@ -714,7 +773,7 @@ int main()
 	}
 	catch (const std::exception &e)
 	{
-		std::cerr << e.what() << std::endl;
+		std::cerr << "EXCEPTION!!!" << e.what() << std::endl;
 		return EXIT_FAILURE;
 	}
 
