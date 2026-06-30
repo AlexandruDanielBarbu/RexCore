@@ -5,6 +5,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
 #include <iostream>  // report and propagate erros
 #include <stdexcept> // report and propagate erros
 #include <cstdlib>   // EXIT_FAILURE; EXIT_SUCCESS
@@ -57,6 +58,38 @@ static std::vector<char> readFile(const std::string &fileName)
 
 	return buffer;
 }
+
+struct  Vertex
+{
+	glm::vec2 pos;
+	glm::vec3 color;
+
+	static vk::VertexInputBindingDescription getVertexBindingDescription()
+	{
+		return {
+		    .binding   = 0,
+		    .stride    = sizeof(Vertex),
+		    .inputRate = vk::VertexInputRate::eVertex};
+	}
+
+	static std::array<vk::VertexInputAttributeDescription, 2> getVertexAttributeDescription()
+	{
+		return {
+		    {{.location = 0,
+		      .binding  = 0,
+		      .format   = vk::Format::eR32G32Sfloat,
+		      .offset   = offsetof(Vertex, pos)},
+		     {.location = 1,
+		      .binding  = 0,
+		      .format   = vk::Format::eR32G32B32Sfloat,
+		      .offset   = offsetof(Vertex, color)}}};
+	}
+};
+
+const std::vector<Vertex> vertices = {
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
 
 class Engine
 {
@@ -318,7 +351,13 @@ class Engine
 		    fragmentShaderStageInfo};
 
 		//Fixed Pipeline Stages
-		vk::PipelineVertexInputStateCreateInfo vertexInputStateInfo;
+		auto vertexBindingDescription = Vertex::getVertexBindingDescription();
+		auto vertexAttributeDescription = Vertex::getVertexAttributeDescription();
+		vk::PipelineVertexInputStateCreateInfo vertexInputStateInfo{
+		    .vertexBindingDescriptionCount   = 1,
+		    .pVertexBindingDescriptions      = &vertexBindingDescription,
+		    .vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributeDescription.size()),
+		    .pVertexAttributeDescriptions    = vertexAttributeDescription.data()};
 		
 		vk::PipelineInputAssemblyStateCreateInfo inputeAssemblerInfo{
 		    .topology = vk::PrimitiveTopology::eTriangleList};
