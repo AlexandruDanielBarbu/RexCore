@@ -158,3 +158,8 @@ The uses of AI so far were:
 
 Released under the MIT License. See [LICENSE](LICENSE).
 
+## Map 🗺️📍
+
+- https://docs.vulkan.org/tutorial/latest/04_Vertex_buffers/01_Vertex_buffer_creation.html
+- https://docs.vulkan.org/tutorial/latest/04_Vertex_buffers/02_Staging_buffer.html
+

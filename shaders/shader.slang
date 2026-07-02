@@ -1,6 +1,6 @@
 struct VSInput {
     float2 inPosition;
-    float3 inColor
+    float3 inColor;
 };
 
 struct VSOutput {
