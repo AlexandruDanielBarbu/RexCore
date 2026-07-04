@@ -6,7 +6,7 @@ RexCore is built on the Vulkan 1.3+ feature set, using dynamic rendering, RAII-b
 
 At its current stage it initializes a Vulkan device, creates a swapchain, and **renders a triangle** with **correct window-resize handling**.
 
-> Development log: https://alexandrudanielbarbu.github.io/RexCore-engine-devlog/
+<!-- > Development log: https://alexandrudanielbarbu.github.io/RexCore-engine-devlog/ -->
 
 This version (`hello-triangle` branch) contains all the vulkan setup code needed to render a triangle on the screen.
 
