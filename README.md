@@ -6,7 +6,7 @@ RexCore is built on the Vulkan 1.3+ feature set, using dynamic rendering, RAII-b
 
 At its current stage it initializes a Vulkan device, creates a swapchain, and **renders a triangle** with **correct window-resize handling**.
 
-<!-- > Development log: https://alexandrudanielbarbu.github.io/RexCore-engine-devlog/ -->
+> Development log: https://alexandrudanielbarbu.github.io/RexCore-engine-devlog/
 
 This version (`hello-triangle` branch) contains all the vulkan setup code needed to render a triangle on the screen.
 
@@ -82,9 +82,10 @@ vcpkg install glfw3 glm tinyobjloader ktx stb --triplet=x64-windows
 Point CMake at your vcpkg toolchain file:
 
 ```bash
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 \
+  -DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
-cmake --build build --config Debug
+cmake --build build --config Release
 ```
 
 ### 4. Run
@@ -96,6 +97,34 @@ directory, so run it from the build folder:
 cd out/build/x64-Debug
 ./main
 ```
+
+## Running the release build
+
+Grab the latest `.zip` from the [Releases](https://github.com/AlexandruDanielBarbu/RexCore/releases/tag/v1.0.0) page, extract it, and
+double-click `main.exe`. Keep all the extracted files together in the same
+folder — `main.exe` looks for `slang.spv` right next to it.
+
+### What you need
+
+RexCore runs on a stock **Windows 11 (64-bit)** machine as long as you have:
+
+- **Windows 11, 64-bit (x64)** — the build is x64 only.
+- 🎮 **Up-to-date GPU drivers** — grab the latest from your GPU vendor
+  These ship the Vulkan runtime (`vulkan-1.dll`) the engine relies on.
+- 🖥️ **A Vulkan 1.3+ capable GPU** — anything from the last few years works.
+- 📦 **Microsoft Visual C++ Redistributable (x64)** — most systems already have
+  it. If launching gives a `VCRUNTIME140.dll was not found` error, install it and try again.
+
+> [!NOTE]
+> By default RexCore expects a **dedicated GPU**. If you only have integrated
+> graphics, see the [Configure and build](#3-configure-and-build) section for
+> the one line to remove.
+
+### You do **not** need
+
+- ❌ The Vulkan SDK — that's for developers; validation layers are off in release.
+- ❌ CMake, vcpkg, or a C++ compiler — those build the engine; you're just running it.
+- ❌ Slang — the shader is already compiled into `slang.spv` for you.
 
 ## Project layout
 

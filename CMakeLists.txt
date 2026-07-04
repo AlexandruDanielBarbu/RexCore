@@ -45,3 +45,11 @@ set_target_properties(main PROPERTIES CXX_STANDARD 20)
 # 4. THE BOND
 # This line ensures the shader compiles BEFORE the C++ code starts
 add_dependencies(main generate_shaders)
+
+# Copy the compiled shader next to the executable so it can be found at runtime
+add_custom_command(TARGET main POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${SHADER_BINARY}" "$<TARGET_FILE_DIR:main>/slang.spv"
+    COMMENT "Copying slang.spv next to main.exe"
+    VERBATIM
+)
