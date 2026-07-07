@@ -174,28 +174,69 @@ class Engine
 		throw std::runtime_error("failed to find suitable memory type!");
 	}
 
-	void createVertexBuffer()
+	std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties)
 	{
-		vk::BufferCreateInfo vertexBufferCreateInfo{
-		    .size        = sizeof(vertices[0]) * vertices.size(),
-		    .usage       = vk::BufferUsageFlagBits::eVertexBuffer,
+		vk::BufferCreateInfo bufferCreateInfo{
+		    .size        = size,
+		    .usage       = usage,
 		    .sharingMode = vk::SharingMode::eExclusive};
 
-		vertexBuffer = vk::raii::Buffer(device, vertexBufferCreateInfo);
+		vk::raii::Buffer buffer = vk::raii::Buffer(device, bufferCreateInfo);
 
-		vk::MemoryRequirements memRequirements = vertexBuffer.getMemoryRequirements();
+		vk::MemoryRequirements memRequirements = buffer.getMemoryRequirements();
 
 		vk::MemoryAllocateInfo memoryAllocateInfo{
 		    .allocationSize  = memRequirements.size,
-		    .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)};
-		
-		vertexBufferMemory = vk::raii::DeviceMemory(device, memoryAllocateInfo);
-		
-		vertexBuffer.bindMemory(*vertexBufferMemory, 0);
+		    .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties)};
 
-		void *data = vertexBufferMemory.mapMemory(0, vertexBufferCreateInfo.size);
-		memcpy(data, vertices.data(), vertexBufferCreateInfo.size);
-		vertexBufferMemory.unmapMemory();
+		vk::raii::DeviceMemory bufferMemory = vk::raii::DeviceMemory(device, memoryAllocateInfo);
+
+		buffer.bindMemory(*bufferMemory, 0);
+
+		return {std::move(buffer), std::move(bufferMemory)};
+	}
+
+	void copyBuffer(vk::raii::Buffer &srcBuffer, vk::raii::Buffer &dstBuffer, vk::DeviceSize size)
+	{
+		vk::CommandBufferAllocateInfo allocInfo{
+			.commandPool = commandPool,
+			.level = vk::CommandBufferLevel::ePrimary,
+			.commandBufferCount = 1};
+
+		vk::raii::CommandBuffer commandCopyBuffer = std::move(device.allocateCommandBuffers(allocInfo).front());
+
+		commandCopyBuffer.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+		commandCopyBuffer.copyBuffer(*srcBuffer, *dstBuffer, vk::BufferCopy(0, 0, size));
+
+		commandCopyBuffer.end();
+
+		graphicsQueue.submit(vk::SubmitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer}, nullptr);
+
+		graphicsQueue.waitIdle();
+	}
+
+	void createVertexBuffer()
+	{
+		vk::DeviceSize vertexBufferSize = sizeof(vertices[0]) * vertices.size();
+		
+		auto [stagingBuffer, stagingBufferMemory] = 
+			createBuffer(
+			    vertexBufferSize,
+			    vk::BufferUsageFlagBits::eTransferSrc,
+			    vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+		void *dataStaging = stagingBufferMemory.mapMemory(0, vertexBufferSize);
+		memcpy(dataStaging, vertices.data(), vertexBufferSize);
+		stagingBufferMemory.unmapMemory();
+
+		std::tie(vertexBuffer, vertexBufferMemory) =
+		    createBuffer(
+		        vertexBufferSize,
+		        vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+		        vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+		copyBuffer(stagingBuffer, vertexBuffer, vertexBufferSize);
 	}
 
 	void cleanupSwapChain()
@@ -265,10 +306,12 @@ class Engine
 		           .levelCount     = 1,
 		           .baseArrayLayer = 0,
 		           .layerCount     = 1}};
+
 		vk::DependencyInfo dependencyInfo = {
 		    .dependencyFlags         = {},
 		    .imageMemoryBarrierCount = 1,
 		    .pImageMemoryBarriers    = &barrier};
+		
 		commandBuffers[frameIndex].pipelineBarrier2(dependencyInfo);
 	}
 
