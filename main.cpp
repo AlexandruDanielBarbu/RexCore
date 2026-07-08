@@ -87,9 +87,16 @@ struct  Vertex
 };
 
 const std::vector<Vertex> vertices = {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
+
+const std::vector<uint16_t> indices = {
+    0, 1, 2,
+    2, 3, 0
+};
 
 class Engine
 {
@@ -128,8 +135,12 @@ class Engine
 	vk::raii::SurfaceKHR             surface        = nullptr;
 	vk::raii::PhysicalDevice         physicalDevice = nullptr;
 	vk::raii::Device                 device         = nullptr;
-	vk::raii::Buffer                 vertexBuffer   = nullptr;
+
+	vk::raii::Buffer                 vertexBuffer       = nullptr;
 	vk::raii::DeviceMemory           vertexBufferMemory = nullptr;
+	vk::raii::Buffer                 indexBuffer        = nullptr;
+	vk::raii::DeviceMemory           indexBufferMemory  = nullptr;
+
 	vk::raii::Queue                  graphicsQueue  = nullptr;
 	vk::raii::SwapchainKHR           swapChain      = nullptr;
 	std::vector<vk::Image>           swapChainImages;
@@ -154,11 +165,37 @@ class Engine
 		createImageViews();
 		createGraphicsPipeline();
 		createCommandPool();
+
 		createVertexBuffer();
+		createIndexBuffer();
+
 		createCommandBuffers();
 		createSyncObjects();
 	}
 	
+	void createIndexBuffer()
+	{
+		vk::DeviceSize indexBufferSize = sizeof(indices[0]) * indices.size();
+		
+		auto [stagingBuffer, stagingBufferMemory] =
+		    createBuffer(
+		        indexBufferSize,
+		        vk::BufferUsageFlagBits::eTransferSrc,
+		        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+		void *dataStaging = stagingBufferMemory.mapMemory(0, indexBufferSize);
+		memcpy(dataStaging, indices.data(), indexBufferSize);
+		stagingBufferMemory.unmapMemory();
+
+		std::tie(indexBuffer, indexBufferMemory) =
+		    createBuffer(
+		        indexBufferSize,
+		        vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+		        vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+		copyBuffer(stagingBuffer, indexBuffer, indexBufferSize);
+	}
+
 	uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
 	{
 		vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
@@ -348,12 +385,14 @@ class Engine
 		commandBuffers[frameIndex].beginRendering(renderingInfo);
 
 		commandBuffers[frameIndex].bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
+		
 		commandBuffers[frameIndex].bindVertexBuffers(0, *vertexBuffer, {0});
-
+		commandBuffers[frameIndex].bindIndexBuffer(*indexBuffer, 0, vk::IndexType::eUint16);
+		
 		commandBuffers[frameIndex].setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
 		commandBuffers[frameIndex].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
 
-		commandBuffers[frameIndex].draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+		commandBuffers[frameIndex].drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 		commandBuffers[frameIndex].endRendering();
 
@@ -448,18 +487,6 @@ class Engine
 		vk::PipelineInputAssemblyStateCreateInfo inputeAssemblerInfo{
 		    .topology = vk::PrimitiveTopology::eTriangleList};
 
-		vk::Viewport viewport{
-			0.0f, 0.0f,
-			
-			static_cast<float>(swapChainExtent.width),
-			static_cast<float>(swapChainExtent.height),
-		        
-			0.0f, 1.0f};
-		
-		vk::Rect2D scissor{
-		    vk::Offset2D{0, 0},
-		    swapChainExtent};
-		
 		std::vector<vk::DynamicState> dynamicStates = {
 		    vk::DynamicState::eViewport,
 		    vk::DynamicState::eScissor};
