@@ -6,6 +6,8 @@
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <chrono>
 #include <iostream>  // report and propagate erros
 #include <stdexcept> // report and propagate erros
 #include <cstdlib>   // EXIT_FAILURE; EXIT_SUCCESS
@@ -58,6 +60,13 @@ static std::vector<char> readFile(const std::string &fileName)
 
 	return buffer;
 }
+
+struct UniformBufferObject
+{
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 proj;
+};
 
 struct  Vertex
 {
@@ -138,8 +147,13 @@ class Engine
 
 	vk::raii::Buffer                 vertexBuffer       = nullptr;
 	vk::raii::DeviceMemory           vertexBufferMemory = nullptr;
+
 	vk::raii::Buffer                 indexBuffer        = nullptr;
 	vk::raii::DeviceMemory           indexBufferMemory  = nullptr;
+
+	std::vector<vk::raii::Buffer>       uniformBuffers;
+	std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
+	std::vector<void *>                 uniformBuffersMapped;
 
 	vk::raii::Queue                  graphicsQueue  = nullptr;
 	vk::raii::SwapchainKHR           swapChain      = nullptr;
@@ -147,6 +161,7 @@ class Engine
 	vk::SurfaceFormatKHR             swapChainSurfaceFormat;
 	vk::Extent2D                     swapChainExtent;
 	std::vector<vk::raii::ImageView> swapChainImageViews;
+	vk::raii::DescriptorSetLayout    descriptorSetLayout = nullptr;
 	vk::raii::PipelineLayout         pipelineLayout   = nullptr;
 	vk::raii::Pipeline               graphicsPipeline = nullptr;
 	vk::raii::CommandPool            commandPool      = nullptr;
@@ -163,14 +178,46 @@ class Engine
 		createLogicalDevice();
 		createSwapChain();
 		createImageViews();
+		createDescriptorSetLayout();
 		createGraphicsPipeline();
 		createCommandPool();
 
 		createVertexBuffer();
 		createIndexBuffer();
+		createUniformBuffers();
 
 		createCommandBuffers();
 		createSyncObjects();
+	}
+
+	void createUniformBuffers()
+	{
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+
+			auto [buffer, bufferMemory] = createBuffer(
+			    bufferSize,
+			    vk::BufferUsageFlagBits::eUniformBuffer,
+			    vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
+
+			uniformBuffers.emplace_back(std::move(buffer));
+			uniformBuffersMemory.emplace_back(std::move(bufferMemory));
+			uniformBuffersMapped.emplace_back(uniformBuffersMemory.back().mapMemory(0, bufferSize));
+		}
+	}
+
+	void createDescriptorSetLayout()
+	{
+		vk::DescriptorSetLayoutBinding uboLayoutBinding{
+		    .binding = 0,
+		    .descriptorType = vk::DescriptorType::eUniformBuffer,
+		    .descriptorCount = 1,
+		    .stageFlags = vk::ShaderStageFlagBits::eVertex};
+
+		vk::DescriptorSetLayoutCreateInfo layoutInfo{.bindingCount = 1, .pBindings = &uboLayoutBinding};
+
+		descriptorSetLayout = vk::raii::DescriptorSetLayout(device, layoutInfo);
 	}
 	
 	void createIndexBuffer()
@@ -522,7 +569,8 @@ class Engine
 		    .logicOpEnable = vk::False, .logicOp = vk::LogicOp::eCopy, .attachmentCount = 1, .pAttachments = &colorBlendAttachment};
 
 		vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo{
-		    .setLayoutCount         = 0,
+		    .setLayoutCount         = 1,
+		    .pSetLayouts            = &*descriptorSetLayout,
 		    .pushConstantRangeCount = 0};
 
 		pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutCreateInfo);
@@ -850,6 +898,22 @@ class Engine
 		device.waitIdle();
 	}
 
+	void updateUniformBuffer(uint32_t currentImage)
+	{
+		static auto startTime = std::chrono::high_resolution_clock::now();
+
+		auto  currentTime = std::chrono::high_resolution_clock::now();
+		float time        = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+		UniformBufferObject ubo{};
+		ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.view  = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height), 0.1f, 10.0f);
+		ubo.proj[1][1] *= -1;
+
+		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+	}
+
 	bool framebufferResized = false;
 	void drawFrame() {
 		auto fenceRes = device.waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
@@ -873,6 +937,9 @@ class Engine
 		recordCommandBuffer(imageIndex);
 
 		vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+
+		updateUniformBuffer(frameIndex);
+
 		const vk::SubmitInfo   submitInfo{.waitSemaphoreCount   = 1,
 		                                  .pWaitSemaphores      = &*presentCompleteSemaphores[frameIndex],
 		                                  .pWaitDstStageMask    = &waitDestinationStageMask,
