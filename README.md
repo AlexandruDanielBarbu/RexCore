@@ -165,4 +165,5 @@ Released under the MIT License. See [LICENSE](LICENSE).
 - https://docs.vulkan.org/tutorial/latest/04_Vertex_buffers/03_Index_buffer.html
 - https://docs.vulkan.org/tutorial/latest/05_Uniform_buffers/00_Descriptor_set_layout_and_buffer.html
 - https://docs.vulkan.org/tutorial/latest/05_Uniform_buffers/01_Descriptor_pool_and_sets.html
+- https://docs.vulkan.org/tutorial/latest/06_Texture_mapping/00_Images.html#_layout_transitions
 
