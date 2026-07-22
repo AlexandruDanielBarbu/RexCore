@@ -207,6 +207,26 @@ class Engine
 		createSyncObjects();
 	}
 
+	vk::raii::CommandBuffer beginSingleTimeCommands()
+	{
+		vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1};
+		vk::raii::CommandBuffer       commandBuffer = std::move(vk::raii::CommandBuffers(device, allocInfo).front());
+
+		vk::CommandBufferBeginInfo beginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
+		commandBuffer.begin(beginInfo);
+
+		return std::move(commandBuffer);
+	}
+
+	void endSingleTimeCommands(vk::raii::CommandBuffer &&commandBuffer)
+	{
+		commandBuffer.end();
+
+		vk::SubmitInfo submitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandBuffer};
+		graphicsQueue.submit(submitInfo, nullptr);
+		graphicsQueue.waitIdle();
+	}
+
 	std::pair<vk::raii::Image, vk::raii::DeviceMemory> createImage(
 	    uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties)
 	{
@@ -261,6 +281,12 @@ class Engine
 		                vk::ImageTiling::eOptimal,
 		                vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 		                vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+		vk::raii::CommandBuffer commandBuffer = beginSingleTimeCommands();
+		transitionImageLayout(commandBuffer, textureImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+		copyBufferToImage(commandBuffer, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+		transitionImageLayout(commandBuffer, textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+		endSingleTimeCommands(std::move(commandBuffer));
 
 	}
 
@@ -396,22 +422,11 @@ class Engine
 
 	void copyBuffer(vk::raii::Buffer &srcBuffer, vk::raii::Buffer &dstBuffer, vk::DeviceSize size)
 	{
-		vk::CommandBufferAllocateInfo allocInfo{
-			.commandPool = commandPool,
-			.level = vk::CommandBufferLevel::ePrimary,
-			.commandBufferCount = 1};
+		vk::raii::CommandBuffer commandCopyBuffer = beginSingleTimeCommands();
 
-		vk::raii::CommandBuffer commandCopyBuffer = std::move(device.allocateCommandBuffers(allocInfo).front());
-
-		commandCopyBuffer.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-
-		commandCopyBuffer.copyBuffer(*srcBuffer, *dstBuffer, vk::BufferCopy(0, 0, size));
-
-		commandCopyBuffer.end();
-
-		graphicsQueue.submit(vk::SubmitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer}, nullptr);
-
-		graphicsQueue.waitIdle();
+		commandCopyBuffer.copyBuffer(*srcBuffer, *dstBuffer, vk::BufferCopy{.size = size});
+		
+		endSingleTimeCommands(std::move(commandCopyBuffer));
 	}
 
 	void createVertexBuffer()
@@ -511,6 +526,30 @@ class Engine
 		    .pImageMemoryBarriers    = &barrier};
 		
 		commandBuffers[frameIndex].pipelineBarrier2(dependencyInfo);
+	}
+
+	void copyBufferToImage(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Buffer &buffer, vk::raii::Image &image, uint32_t width, uint32_t height)
+	{
+		vk::BufferImageCopy region{.bufferOffset      = 0,
+		                           .bufferRowLength   = 0,
+		                           .bufferImageHeight = 0,
+		                           .imageSubresource  = {.aspectMask = vk::ImageAspectFlagBits::eColor, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
+		                           .imageOffset       = {0, 0, 0},
+		                           .imageExtent       = {width, height, 1}};
+
+		commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, region);
+	}
+
+	void transitionImageLayout(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Image &image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
+	{
+		vk::ImageMemoryBarrier barrier{.oldLayout           = oldLayout,
+		                               .newLayout           = newLayout,
+		                               .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+		                               .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+		                               .image               = image,
+		                               .subresourceRange    = {.aspectMask = vk::ImageAspectFlagBits::eColor, .levelCount = 1, .layerCount = 1}};
+
+		commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, {}, {}, barrier);
 	}
 
 	void recordCommandBuffer(uint32_t imageIndex)
