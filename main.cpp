@@ -19,6 +19,7 @@
 #include <limits>    // std::numeric_limits
 #include <algorithm> // std::clamp
 #include <fstream>   // for shader binary loading
+#include <filesystem>
 
 constexpr uint32_t WIDTH          = 800;
 constexpr uint32_t HEIGHT         = 800;
@@ -259,6 +260,7 @@ class Engine
 
 		if (!pixels)
 		{
+			std::cout << "CWD: " << std::filesystem::current_path() << "\n";
 			throw std::runtime_error("failed to load texture image!");
 		}
 
@@ -287,7 +289,6 @@ class Engine
 		copyBufferToImage(commandBuffer, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 		transitionImageLayout(commandBuffer, textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
 		endSingleTimeCommands(std::move(commandBuffer));
-
 	}
 
 	void createDescriptorSets()
@@ -549,7 +550,30 @@ class Engine
 		                               .image               = image,
 		                               .subresourceRange    = {.aspectMask = vk::ImageAspectFlagBits::eColor, .levelCount = 1, .layerCount = 1}};
 
-		commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, {}, {}, barrier);
+		vk::PipelineStageFlags sourceStage;
+		vk::PipelineStageFlags destinationStage;
+
+		if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal)
+		{
+			barrier.srcAccessMask = {};
+			barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+			sourceStage      = vk::PipelineStageFlagBits::eTopOfPipe;
+			destinationStage = vk::PipelineStageFlagBits::eTransfer;
+		}
+		else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
+		{
+			barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+			barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+			sourceStage      = vk::PipelineStageFlagBits::eTransfer;
+			destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
+		}
+		else
+		{
+			throw std::invalid_argument("unsupported layout transition!");
+		}
+		commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, {}, nullptr, barrier);
 	}
 
 	void recordCommandBuffer(uint32_t imageIndex)
