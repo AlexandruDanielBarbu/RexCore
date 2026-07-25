@@ -167,4 +167,5 @@ Released under the MIT License. See [LICENSE](LICENSE).
 - https://docs.vulkan.org/tutorial/latest/05_Uniform_buffers/01_Descriptor_pool_and_sets.html
 - https://docs.vulkan.org/tutorial/latest/06_Texture_mapping/00_Images.html#_layout_transitions
 - https://docs.vulkan.org/tutorial/latest/06_Texture_mapping/00_Images.html#_layout_transitions
+- https://docs.vulkan.org/tutorial/latest/06_Texture_mapping/01_Image_view_and_sampler.html
 
