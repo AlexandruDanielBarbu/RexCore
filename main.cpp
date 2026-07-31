@@ -154,6 +154,8 @@ class Engine
 
 	vk::raii::Image                  textureImage       = nullptr;
 	vk::raii::DeviceMemory           textureImageMemory = nullptr;
+	vk::raii::ImageView              textureImageView   = nullptr;
+	vk::raii::Sampler                textureSampler     = nullptr;
 
 	vk::raii::Buffer                 vertexBuffer       = nullptr;
 	vk::raii::DeviceMemory           vertexBufferMemory = nullptr;
@@ -196,7 +198,11 @@ class Engine
 		createDescriptorSetLayout();
 		createGraphicsPipeline();
 		createCommandPool();
+
 		createTextureImage();
+		createTextureImageView();
+		createTextureSampler();
+
 		createVertexBuffer();
 		createIndexBuffer();
 		createUniformBuffers();
@@ -206,6 +212,45 @@ class Engine
 
 		createCommandBuffers();
 		createSyncObjects();
+	}
+
+	void createTextureSampler()
+	{
+		vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
+		vk::SamplerCreateInfo samplerInfo{
+			.magFilter        = vk::Filter::eLinear,
+			.minFilter        = vk::Filter::eLinear,
+			.mipmapMode       = vk::SamplerMipmapMode::eLinear,
+			.addressModeU     = vk::SamplerAddressMode::eRepeat,
+			.addressModeV     = vk::SamplerAddressMode::eRepeat,
+			.addressModeW     = vk::SamplerAddressMode::eRepeat,
+			.mipLodBias	  = 0.0f,
+			.anisotropyEnable = vk::True,
+			.maxAnisotropy    = properties.limits.maxSamplerAnisotropy,
+			.compareEnable	  = vk::False,
+			.compareOp        = vk::CompareOp::eAlways,
+			.minLod		  = 0.0f,
+			.maxLod		  = 0.0f,
+			.borderColor      = vk::BorderColor::eIntOpaqueBlack,
+			.unnormalizedCoordinates = vk::False};
+
+		textureSampler = vk::raii::Sampler(device, samplerInfo);
+	}
+
+	vk::raii::ImageView createImageView(vk::Image const &image, vk::Format format)
+	{
+		vk::ImageViewCreateInfo viewInfo{
+		    .image            = image,
+		    .viewType         = vk::ImageViewType::e2D,
+		    .format           = format,
+		    .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}};
+		
+		return vk::raii::ImageView(device, viewInfo);
+	}
+
+	void createTextureImageView()
+	{
+		textureImageView = createImageView(*textureImage, vk::Format::eR8G8B8A8Srgb);
 	}
 
 	vk::raii::CommandBuffer beginSingleTimeCommands()
@@ -260,7 +305,6 @@ class Engine
 
 		if (!pixels)
 		{
-			std::cout << "CWD: " << std::filesystem::current_path() << "\n";
 			throw std::runtime_error("failed to load texture image!");
 		}
 
@@ -771,19 +815,14 @@ class Engine
 		graphicsPipeline = vk::raii::Pipeline(device, nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
 	}
 
-	void createImageViews() {
+	void createImageViews()
+	{
 		assert(swapChainImageViews.empty());
 
-		vk::ImageViewCreateInfo imageViewCreateInfo {
-			.viewType = vk::ImageViewType::e2D,
-			.format   = swapChainSurfaceFormat.format,
-			.components = {vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity},
-			.subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}
-		};
-
-		for (const auto &image : swapChainImages) {
-			imageViewCreateInfo.image = image;
-			swapChainImageViews.emplace_back(device, imageViewCreateInfo);
+		swapChainImageViews.reserve(swapChainImages.size());
+		for (auto &image : swapChainImages)
+		{
+			swapChainImageViews.emplace_back(createImageView(image, swapChainSurfaceFormat.format));
 		}
 	}
 
@@ -856,11 +895,8 @@ class Engine
 			vk::PhysicalDeviceVulkan13Features,
 			vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
 			vk::PhysicalDeviceVulkan11Features> featureChain = {
-			{},
-			{
-				.synchronization2 = true,
-				.dynamicRendering = true,
-		        },
+		        {.features = {.samplerAnisotropy = true}},
+			{.synchronization2 = true, .dynamicRendering = true},
 			{.extendedDynamicState = true},
 			{.shaderDrawParameters = true}
 		};
@@ -962,10 +998,15 @@ class Engine
 
 
 				// Feature check
-				auto features = pd.template getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
-				bool supportsRequiredFeatures = features.template get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering &&
-					features.template get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
-				
+				auto features                 = pd.template getFeatures2<vk::PhysicalDeviceFeatures2,
+											 vk::PhysicalDeviceVulkan13Features,
+											 vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+
+				bool supportsRequiredFeatures = features.template get<vk::PhysicalDeviceFeatures2>().features.samplerAnisotropy &&
+								features.template get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering &&
+								features.template get<vk::PhysicalDeviceVulkan13Features>().synchronization2 &&
+								features.template get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
+
 				return supportsVulkan1_3 && dedicatedGPU && supportsGraphics && supportsAllRequiredExtensions && supportsRequiredFeatures;
 			});
 

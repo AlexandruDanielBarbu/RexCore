@@ -168,4 +168,5 @@ Released under the MIT License. See [LICENSE](LICENSE).
 - https://docs.vulkan.org/tutorial/latest/06_Texture_mapping/00_Images.html#_layout_transitions
 - https://docs.vulkan.org/tutorial/latest/06_Texture_mapping/00_Images.html#_layout_transitions
 - https://docs.vulkan.org/tutorial/latest/06_Texture_mapping/01_Image_view_and_sampler.html
+- https://docs.vulkan.org/tutorial/latest/06_Texture_mapping/02_Combined_image_sampler.html
 
