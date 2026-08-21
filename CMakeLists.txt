@@ -1,19 +1,19 @@
 cmake_minimum_required (VERSION 3.29)
-
 project (RexCore)
 
-# TOOLS & LIBRARIES
+
+# Tools
 find_package (glfw3 REQUIRED)
 find_package (glm REQUIRED)
-find_package (Vulkan 1.4.335 REQUIRED)      # Require Vulkan SDK version 1.4.335 or higher
+find_package (Vulkan 1.4.335 REQUIRED)
 find_package (tinyobjloader REQUIRED)
-# find_package (tinygltf REQUIRED)
-find_package (KTX REQUIRED)
 find_package (stb REQUIRED)
 
 find_program(SLANGC_EXECUTABLE slangc HINTS $ENV{VULKAN_SDK}/bin REQUIRED)
 
-set(SHADER_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders/shader.slang")
+
+# Shader compilation
+set(SHADER_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/shader.slang")
 set(SHADER_BINARY "${CMAKE_CURRENT_BINARY_DIR}/slang.spv")
 
 add_custom_command(
@@ -26,30 +26,22 @@ add_custom_command(
     COMMENT "Compiling Slang: ${SHADER_SOURCE}"
     VERBATIM
 )
-# Create a "target" for the shader so we can link it to our app
+
 add_custom_target(generate_shaders DEPENDS ${SHADER_BINARY})
 
-# 3. EXECUTABLE SETUP
-add_executable(main main.cpp)
 
-target_link_libraries(main PRIVATE 
+# Application executable
+add_executable(RexCore main.cpp)
+target_compile_definitions(RexCore PRIVATE REXCORE_ASSETS="${CMAKE_CURRENT_SOURCE_DIR}")
+
+target_link_libraries(RexCore PRIVATE 
     Vulkan::Vulkan 
     glfw 
     glm::glm 
     tinyobjloader::tinyobjloader
 )
 
-target_include_directories(main PRIVATE ${stb_INCLUDE_DIRS})
-set_target_properties(main PROPERTIES CXX_STANDARD 20)
+target_include_directories(RexCore PRIVATE ${stb_INCLUDE_DIRS})
+set_target_properties(RexCore PROPERTIES CXX_STANDARD 20)
 
-# 4. THE BOND
-# This line ensures the shader compiles BEFORE the C++ code starts
-add_dependencies(main generate_shaders)
-
-# Copy the compiled shader next to the executable so it can be found at runtime
-add_custom_command(TARGET main POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${SHADER_BINARY}" "$<TARGET_FILE_DIR:main>/slang.spv"
-    COMMENT "Copying slang.spv next to main.exe"
-    VERBATIM
-)
+add_dependencies(RexCore generate_shaders)

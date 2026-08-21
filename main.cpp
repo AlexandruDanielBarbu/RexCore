@@ -30,21 +30,27 @@
 #include <filesystem>
 #include <unordered_map>
 
+#ifdef NDEBUG
+constexpr bool enableValidationLayers = false;
+#	define ASSET(p) "assets/" p
+#else
+constexpr bool enableValidationLayers = true;
+#	define ASSET(p) REXCORE_ASSETS "/assets/" p
+#endif        // NDEBUG
+
 constexpr uint32_t WIDTH          = 800;
 constexpr uint32_t HEIGHT         = 800;
 constexpr char     WINDOW_TITLE[] = "Rex Core";
 constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
 
-const std::string  MODEL_PATH           = "models/viking_room.obj";
-const std::string  TEXTURE_PATH         = "textures/viking_room.png";
+//const std::string  MODEL_PATH           = "models/viking_room.obj";
+//const std::string  TEXTURE_PATH         = "textures/viking_room.png";
+
+const std::string MODEL_PATH   = ASSET("models/skateboard.obj");
+const std::string TEXTURE_PATH = ASSET("textures/Skateboard.png");
 
 const std::array<char const *, 1> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
-#ifdef NDEBUG
-constexpr bool enableValidationLayers = false;
-#else
-constexpr bool enableValidationLayers = true;
-#endif        // NDEBUG
 
 // Validation layer debug printing callback
 static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT      severity,
