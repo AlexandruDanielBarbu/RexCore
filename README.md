@@ -2,13 +2,9 @@
 
 A Vulkan rendering engine written in modern C++, currently in early development.
 
-RexCore is built on the Vulkan 1.3+ feature set, using dynamic rendering, RAII-based Vulkan bindings (`vulkan_raii.hpp`), and Slang shaders compiled to SPIR-V at build time.
+RexCore is built on the Vulkan 1.3+ feature set, using dynamic rendering, RAII-based Vulkan bindings, and Slang shaders compiled to SPIR-V at build time.
 
-At its current stage it initializes a Vulkan device, creates a swapchain, and **renders a triangle** with **correct window-resize handling**.
-
-<!-- > Development log: https://alexandrudanielbarbu.github.io/RexCore-engine-devlog/ -->
-
-This version (`hello-triangle` branch) contains all the vulkan setup code needed to render a triangle on the screen.
+At its current stage it initializes a Vulkan device, creates a swapchain, and **renders a textured 3D model** loaded from an OBJ file, with depth testing and **correct window-resize handling**.
 
 ## Index
 
@@ -19,21 +15,25 @@ This version (`hello-triangle` branch) contains all the vulkan setup code needed
   - [2. Install dependencies](#2-install-dependencies)
   - [3. Configure and build](#3-configure-and-build)
   - [4. Run](#4-run)
+  - [5. Package a release](#5-package-a-release)
+- [Running the release build](#running-the-release-build)
+  - [What you need](#what-you-need)
 - [Project layout](#project-layout)
 - [Sources](#sources)
 - [AI Policy](#ai-policy)
 - [License](#license)
+- [Map](#map-)
 
 ## Features
 
-- Vulkan 1.3 **dynamic rendering**
-- **RAII** Vulkan resource management via `vk::raii`
-- **GLFW** windowing with live swapchain recreation on resize
+- **dynamic rendering**
+- **OBJ model loading** through tinyobjloader, with vertex deduplication
+- **Textured rendering** — staged image upload, image views, anisotropic sampler
+- **Depth buffering** with an automatically selected depth format
+- **Uniform buffers** and descriptor pool/sets supplying the model-view-projection matrices
+- Device-local **vertex and index buffers** filled through staging buffers
 - **Slang** shaders compiled to SPIR-V as part of the build
-- Physical-device selection with feature and extension checks (discrete GPU,
-  `synchronization2`, `dynamicRendering`, `extendedDynamicState`)
 - Double-buffered rendering with frames-in-flight synchronization
-- Validation layers and debug messenger enabled in debug builds
 
 ## Requirements
 
@@ -49,7 +49,6 @@ Libraries (resolved through vcpkg):
 - **GLFW3** — windowing and surface creation
 - **GLM** — math
 - **tinyobjloader** — mesh loading
-- **KTX** — texture container loading
 - **stb** — image loading
 
 ## Building
@@ -66,7 +65,7 @@ cd RexCore
 ### 2. Install dependencies
 
 ```bash
-vcpkg install glfw3 glm tinyobjloader ktx stb --triplet=x64-windows
+vcpkg install glfw3 glm tinyobjloader stb --triplet=x64-windows
 ```
 
 ### 3. Configure and build
@@ -74,67 +73,72 @@ vcpkg install glfw3 glm tinyobjloader ktx stb --triplet=x64-windows
 > [!CAUTION]
 > 1. This demo was developed, tested and run on Windows 11 only. Other operating systems are not supported.
 > 2. The demo assumes you have a dedicated GPU. If not, you can remove this line of code:
-```c++
-  // Dedicated GPU check
-  bool dedicatedGPU = pd.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
-```
+>
+> ```c++
+>   // Dedicated GPU check
+>   bool dedicatedGPU = pd.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
+> ```
 
 Point CMake at your vcpkg toolchain file:
 
 ```bash
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 \
+cmake -S . -B out/build/x64-Release -G "Visual Studio 17 2022" -A x64 \
   -DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
-cmake --build build --config Release
+cmake --build out/build/x64-Release --config Release
 ```
 
 ### 4. Run
-
-The executable loads the compiled shader (`slang.spv`) from its working
-directory, so run it from the build folder:
-
 ```bash
 cd out/build/x64-Debug
-./main
+./RexCore.exe
 ```
+
+The model and texture in use are chosen at the top of `main.cpp` with
+`MODEL_PATH` and `TEXTURE_PATH`.
+
+### 5. Package a release
+
+The build produces a self-contained ZIP through CPack:
+
+```bash
+cd out/build/x64-Release
+cpack -C Release
+```
+
+This writes `RexCore-win64.zip` containing `RexCore.exe`, `slang.spv`, the
+`assets/` folder, `glfw3.dll`, and the Visual C++ runtime DLLs.
 
 ## Running the release build
 
-Grab the latest `.zip` from the [Releases](https://github.com/AlexandruDanielBarbu/RexCore/releases/tag/v1.0.0) page, extract it, and
-double-click `main.exe`. Keep all the extracted files together in the same
-folder — `main.exe` looks for `slang.spv` right next to it.
+Grab the latest `.zip` from the [Releases](https://github.com/AlexandruDanielBarbu/RexCore/releases) page, extract it, and
+double-click `RexCore.exe`. Keep all the extracted files together in the same
+folder — `RexCore.exe` looks for `slang.spv` and the `assets/` folder right next to it.
 
 ### What you need
 
 RexCore runs on a stock **Windows 11 (64-bit)** machine as long as you have:
 
-- **Windows 11, 64-bit (x64)** — the build is x64 only.
-- 🎮 **Up-to-date GPU drivers** — grab the latest from your GPU vendor
-  These ship the Vulkan runtime (`vulkan-1.dll`) the engine relies on.
-- 🖥️ **A Vulkan 1.3+ capable GPU** — anything from the last few years works.
-- 📦 **Microsoft Visual C++ Redistributable (x64)** — most systems already have
-  it. If launching gives a `VCRUNTIME140.dll was not found` error, install it and try again.
+- **Windows 11, 64-bit (x64)**
+- **Up-to-date GPU drivers**
+- **A Vulkan 1.3+ capable GPU** — anything from the last few years works.
 
 > [!NOTE]
 > By default RexCore expects a **dedicated GPU**. If you only have integrated
 > graphics, see the [Configure and build](#3-configure-and-build) section for
 > the one line to remove.
 
-### You do **not** need
-
-- ❌ The Vulkan SDK — that's for developers; validation layers are off in release.
-- ❌ CMake, vcpkg, or a C++ compiler — those build the engine; you're just running it.
-- ❌ Slang — the shader is already compiled into `slang.spv` for you.
-
 ## Project layout
 
 ```
 .
 ├── main.cpp              # Engine entry point and Vulkan setup
-├── CMakeLists.txt        # Build configuration + shader compilation step
-├── CMake/                # Custom find-modules for dependencies
-├── shaders/
-│   └── shader.slang      # Vertex + fragment shaders (Slang)
+├── CMakeLists.txt        # Build configuration, shader compilation, packaging
+├── assets/
+│   ├── models/           # OBJ meshes
+│   ├── textures/         # PNG / JPG textures
+│   └── shaders/
+│       └── shader.slang  # Vertex + fragment shaders (Slang)
 └── LICENSE
 ```
 
@@ -153,6 +157,7 @@ The uses of AI so far were:
   - restructure the CMake build file
   - explain concepts such as framebuffers, swapchains, semaphores and fences
   - debugging **(!! only if the problem persists after a genuine effort on my end of solving the bug!!)**
+  - set up the release packaging (CMake install rules and CPack)
 
 ## License
 

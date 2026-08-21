@@ -45,3 +45,21 @@ target_include_directories(RexCore PRIVATE ${stb_INCLUDE_DIRS})
 set_target_properties(RexCore PROPERTIES CXX_STANDARD 20)
 
 add_dependencies(RexCore generate_shaders)
+
+
+# Release packaging: everything RexCore.exe needs, in one folder.
+install(TARGETS RexCore RUNTIME DESTINATION .)
+install(FILES "${SHADER_BINARY}" DESTINATION .)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets/models"   DESTINATION assets)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets/textures" DESTINATION assets)
+
+# glfw3.dll (and any other dependency DLLs)
+install(FILES $<TARGET_RUNTIME_DLLS:RexCore> DESTINATION .)
+
+# MSVC runtime, so the friend needs no VC++ Redistributable download
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
+include(InstallRequiredSystemLibraries)
+
+set(CPACK_GENERATOR "ZIP")
+set(CPACK_PACKAGE_FILE_NAME "RexCore-win64")
+include(CPack)
