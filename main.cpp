@@ -82,6 +82,19 @@ static std::vector<char> readFile(const std::string &fileName)
 	return buffer;
 }
 
+static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+	{
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+	}
+
+	if (key == GLFW_KEY_TAB && action == GLFW_PRESS)
+	{
+		// TODO togle camera state	
+	}
+}
+
 struct UniformBufferObject
 {
 	alignas(16) glm::mat4 model;
@@ -129,6 +142,34 @@ struct hash<Vertex>
 };
 }        // namespace std
 
+class Camera
+{
+  public:
+	enum CameraState
+	{
+		FreeCam,
+		ScriptedCam,
+	};
+
+	int toggleCameraState() {
+		state = state == CameraState::FreeCam ? CameraState::ScriptedCam : CameraState::FreeCam;
+		return state;
+	}
+
+  private:
+	CameraState state = CameraState::FreeCam;
+
+	glm::vec3   pos{0,0,-5};
+	glm::vec3   lookAtTarget{0,0,0};
+
+	double camera_fov  = glm::radians(45.0f);
+	double camera_near = 0.1f;
+	double camera_far  = 10.0f;
+
+	double camera_yaw   = 0;
+	double camera_pitch = 0;
+};
+
 class Engine
 {
   public:
@@ -152,6 +193,7 @@ class Engine
 
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+		glfwSetKeyCallback(window, key_callback);
 	}
 
 	static void framebufferResizeCallback(GLFWwindow *window, int width, int height)
