@@ -82,16 +82,17 @@ static std::vector<char> readFile(const std::string &fileName)
 	return buffer;
 }
 
+bool        event_cameraToggleState_should_change = false;
+
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
+	if (key == GLFW_KEY_TAB && action == GLFW_PRESS)
+	{
+		event_cameraToggleState_should_change = true;
+	}
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 	{
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
-	}
-
-	if (key == GLFW_KEY_TAB && action == GLFW_PRESS)
-	{
-		// TODO togle camera state	
 	}
 }
 
@@ -156,15 +157,62 @@ class Camera
 		return state;
 	}
 
+	void update(float deltaTime)
+	{
+		if (event_cameraToggleState_should_change)
+		{
+			event_cameraToggleState_should_change = false;
+			toggleCameraState();
+		}
+
+		switch (state)
+		{
+			case Camera::FreeCam:
+			{
+				/*
+				WASD movement
+
+				1. bring back the map
+				2. check WASD keys
+					2.1. add for each one some step value * deltaTime
+				3. check mouse rotation
+					3.1. update lookAtTarget position based on mouse delta
+				*/
+			}
+				break;
+			case Camera::ScriptedCam:
+			{
+				// circular movement looking at the center of the scene
+			}
+				break;
+			default:
+				break;
+		}
+	}
+
+	float  aspect_ratio = 1;
+	glm::mat4 getProjectionMatrix()
+	{
+		auto proj = glm::perspective(camera_fov, aspect_ratio, camera_near, camera_far);
+		proj[1][1] *= -1;
+
+		return proj;
+	}
+
+	glm::mat4 getViewMatrix()
+	{
+		return glm::lookAt(pos, lookAtTarget, glm::vec3(0.0f, 0.0f, 1.0f));
+	}
+
   private:
 	CameraState state = CameraState::FreeCam;
 
-	glm::vec3   pos{0,0,-5};
+	glm::vec3   pos{2,2,2};
 	glm::vec3   lookAtTarget{0,0,0};
 
-	double camera_fov  = glm::radians(45.0f);
-	double camera_near = 0.1f;
-	double camera_far  = 10.0f;
+	float camera_fov  = glm::radians(45.0f);
+	float camera_near = 0.1f;
+	float camera_far  = 10.0f;
 
 	double camera_yaw   = 0;
 	double camera_pitch = 0;
@@ -202,6 +250,7 @@ class Engine
 		app->framebufferResized = true;
 	}
 	
+	Camera                           mainCamera;
 	vk::raii::Context  context;
 	vk::raii::Instance instance = nullptr;
 	vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
@@ -267,9 +316,12 @@ class Engine
 		createCommandPool();
 
 		createDepthResources();
+		
 		createTextureImage();
 		createTextureImageView();
 		createTextureSampler();
+
+		configureCamera();
 
 		loadModel();
 		createVertexBuffer();
@@ -281,6 +333,13 @@ class Engine
 
 		createCommandBuffers();
 		createSyncObjects();
+	}
+
+	void configureCamera()
+	{
+		// load main camera properties from an .ini file
+
+		mainCamera.aspect_ratio = static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
 	}
 
 	void loadModel()
@@ -1285,9 +1344,19 @@ class Engine
 	
 	void mainLoop() {
 		std::cout << "All works fine!" << std::endl;
-		
+
+		auto previousTime = std::chrono::high_resolution_clock::now();
+
+
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
+
+			auto  currentTime = std::chrono::high_resolution_clock::now();
+			float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - previousTime).count();
+			previousTime      = currentTime;
+
+			mainCamera.update(deltaTime);
+
 			drawFrame();
 		}
 
@@ -1302,11 +1371,10 @@ class Engine
 		float time        = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 		UniformBufferObject ubo{};
-		ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.view  = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height), 0.1f, 10.0f);
-		ubo.proj[1][1] *= -1;
-
+		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.view  = mainCamera.getViewMatrix();
+		ubo.proj = mainCamera.getProjectionMatrix();
+		
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 	}
 
