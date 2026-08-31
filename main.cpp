@@ -82,14 +82,46 @@ static std::vector<char> readFile(const std::string &fileName)
 	return buffer;
 }
 
-bool        event_cameraToggleState_should_change = false;
+template <typename... Args>
+class Signal
+{
+  public:
+	using Callback = std::function<void(Args...)>;
 
+	void subscribe(Callback cb)
+	{
+		callbacks.push_back(std::move(cb));
+	}
+
+	void invoke(Args... args)
+	{
+		for (const auto &cb : callbacks)
+		{
+			cb(args...);
+		}
+	}
+
+  private:
+	std::vector<Callback> callbacks;
+};
+
+std::unordered_map<int, bool> keyMap;
+
+Signal<> onTabKeyPressed;
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
+	// Update key map for internal use
+	if (action == GLFW_PRESS) keyMap[key] = true;
+	else if (action == GLFW_RELEASE) keyMap[key] = false;
+
+	// Other events
 	if (key == GLFW_KEY_TAB && action == GLFW_PRESS)
 	{
-		event_cameraToggleState_should_change = true;
+		onTabKeyPressed.invoke();
 	}
+
+
+	// Close app event
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 	{
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -146,6 +178,13 @@ struct hash<Vertex>
 class Camera
 {
   public:
+	Camera()
+	{
+		onTabKeyPressed.subscribe([this]() {
+			toggleCameraState(); 
+		});
+	}
+
 	enum CameraState
 	{
 		FreeCam,
@@ -157,27 +196,49 @@ class Camera
 		return state;
 	}
 
+	void freeCamLogic(float deltaTime)
+	{
+		/*
+		WASD movement
+		3. check mouse rotation
+			3.1. update lookAtTarget position based on mouse delta
+		*/
+
+		constexpr float cameraSpeed = 10.0f;
+
+		if (keyMap[GLFW_KEY_W])
+		{
+			pos += glm::vec3(0, 0, 1) * cameraSpeed * deltaTime;
+		}
+		if (keyMap[GLFW_KEY_S])
+		{
+			pos -= glm::vec3(0, 0, 1) * cameraSpeed * deltaTime;
+		}
+		if (keyMap[GLFW_KEY_D])
+		{
+			pos += glm::vec3(1, 0, 0) * cameraSpeed * deltaTime;
+		}
+		if (keyMap[GLFW_KEY_A])
+		{
+			pos -= glm::vec3(1, 0, 0) * cameraSpeed * deltaTime;
+		}
+		if (keyMap[GLFW_KEY_E])
+		{
+			pos += glm::vec3(0, 1, 0) * cameraSpeed * deltaTime;
+		}
+		if (keyMap[GLFW_KEY_Q])
+		{
+			pos -= glm::vec3(0, 1, 0) * cameraSpeed * deltaTime;
+		}
+	}
+
 	void update(float deltaTime)
 	{
-		if (event_cameraToggleState_should_change)
-		{
-			event_cameraToggleState_should_change = false;
-			toggleCameraState();
-		}
-
 		switch (state)
 		{
 			case Camera::FreeCam:
 			{
-				/*
-				WASD movement
-
-				1. bring back the map
-				2. check WASD keys
-					2.1. add for each one some step value * deltaTime
-				3. check mouse rotation
-					3.1. update lookAtTarget position based on mouse delta
-				*/
+				freeCamLogic(deltaTime);
 			}
 				break;
 			case Camera::ScriptedCam:
