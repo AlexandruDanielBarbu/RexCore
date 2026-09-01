@@ -17,6 +17,9 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
+#include "rex-events/Signal.hpp"
+#include "graphics/Vertex.hpp"
+#include "rex-objects/GameObject.hpp"
 
 #include <chrono>
 #include <iostream>  // report and propagate erros
@@ -42,6 +45,9 @@ constexpr uint32_t WIDTH          = 800;
 constexpr uint32_t HEIGHT         = 800;
 constexpr char     WINDOW_TITLE[] = "Rex Core";
 constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
+constexpr int      MAX_OBJECTS          = 3;
+
+std::array<GameObject, MAX_OBJECTS> gameObjects;
 
 //const std::string  MODEL_PATH           = "models/viking_room.obj";
 //const std::string  TEXTURE_PATH         = "textures/viking_room.png";
@@ -82,29 +88,6 @@ static std::vector<char> readFile(const std::string &fileName)
 	return buffer;
 }
 
-template <typename... Args>
-class Signal
-{
-  public:
-	using Callback = std::function<void(Args...)>;
-
-	void subscribe(Callback cb)
-	{
-		callbacks.push_back(std::move(cb));
-	}
-
-	void invoke(Args... args)
-	{
-		for (const auto &cb : callbacks)
-		{
-			cb(args...);
-		}
-	}
-
-  private:
-	std::vector<Callback> callbacks;
-};
-
 std::unordered_map<int, bool> keyMap;
 
 Signal<> onTabKeyPressed;
@@ -135,45 +118,6 @@ struct UniformBufferObject
 	alignas(16) glm::mat4 proj;
 };
 
-struct  Vertex
-{
-	glm::vec3 pos;
-	glm::vec3 color;
-	glm::vec2 texCoord;
-
-	static vk::VertexInputBindingDescription getVertexBindingDescription()
-	{
-		return {
-		    .binding   = 0,
-		    .stride    = sizeof(Vertex),
-		    .inputRate = vk::VertexInputRate::eVertex};
-	}
-
-	static std::array<vk::VertexInputAttributeDescription, 3> getVertexAttributeDescription()
-	{
-		return {{{.location = 0, .binding = 0, .format = vk::Format::eR32G32B32Sfloat, .offset = offsetof(Vertex, pos)},
-		         {.location = 1, .binding = 0, .format = vk::Format::eR32G32B32Sfloat, .offset = offsetof(Vertex, color)},
-		         {.location = 2, .binding = 0, .format = vk::Format::eR32G32Sfloat, .offset = offsetof(Vertex, texCoord)}}};
-
-	}
-
-	bool operator==(const Vertex &other) const
-	{
-		return pos == other.pos && color == other.color && texCoord == other.texCoord;
-	}
-};
-
-namespace std
-{
-template <>
-struct hash<Vertex>
-{
-	size_t operator()(Vertex const &vertex) const
-	{
-		return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
-	}
-};
-}        // namespace std
 
 class Camera
 {
@@ -914,7 +858,7 @@ class Engine
 		    vk::ImageAspectFlagBits::eDepth,
 		    *depthImage);
 
-		vk::ClearValue              clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
+		vk::ClearValue              clearColor = vk::ClearColorValue(0.1f, 0.1f, 0.1f, 1.0f);
 		vk::ClearValue		    clearDepth = vk::ClearDepthStencilValue(1.0f, 0);
 		
 		vk::RenderingAttachmentInfo attachmentInfo = {

@@ -31,7 +31,9 @@ add_custom_target(generate_shaders DEPENDS ${SHADER_BINARY})
 
 
 # Application executable
-add_executable(RexCore main.cpp)
+file(GLOB_RECURSE SOURCES src/*.cpp)
+add_executable(RexCore ${SOURCES})
+target_include_directories(RexCore PRIVATE src)
 target_compile_definitions(RexCore PRIVATE REXCORE_ASSETS="${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(RexCore PRIVATE 
