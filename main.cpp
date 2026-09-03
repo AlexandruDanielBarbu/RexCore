@@ -150,30 +150,37 @@ class Camera
 
 		constexpr float cameraSpeed = 10.0f;
 
+		glm::vec3 moveDirection{};
+
 		if (keyMap[GLFW_KEY_W])
 		{
-			pos += glm::vec3(0, 0, 1) * cameraSpeed * deltaTime;
+			moveDirection += glm::vec3(0, 0, 1);
 		}
 		if (keyMap[GLFW_KEY_S])
 		{
-			pos -= glm::vec3(0, 0, 1) * cameraSpeed * deltaTime;
+			moveDirection -= glm::vec3(0, 0, 1);
 		}
 		if (keyMap[GLFW_KEY_D])
 		{
-			pos += glm::vec3(1, 0, 0) * cameraSpeed * deltaTime;
+			moveDirection += glm::vec3(1, 0, 0);
 		}
 		if (keyMap[GLFW_KEY_A])
 		{
-			pos -= glm::vec3(1, 0, 0) * cameraSpeed * deltaTime;
+			moveDirection -= glm::vec3(1, 0, 0);
 		}
 		if (keyMap[GLFW_KEY_E])
 		{
-			pos += glm::vec3(0, 1, 0) * cameraSpeed * deltaTime;
+			moveDirection += glm::vec3(0, 1, 0);
 		}
 		if (keyMap[GLFW_KEY_Q])
 		{
-			pos -= glm::vec3(0, 1, 0) * cameraSpeed * deltaTime;
+			moveDirection -= glm::vec3(0, 1, 0);
 		}
+
+		moveDirection = glm::normalize(moveDirection);
+
+		pos += moveDirection * cameraSpeed * deltaTime;
+		lookAtTarget += moveDirection * cameraSpeed * deltaTime;
 	}
 
 	void update(float deltaTime)
@@ -1348,7 +1355,7 @@ class Engine
 	}
 	
 	void mainLoop() {
-		std::cout << "All works fine!" << std::endl;
+		std::cout << "All works fine!!!!!!121212" << std::endl;
 
 		auto previousTime = std::chrono::high_resolution_clock::now();
 
@@ -1378,6 +1385,8 @@ class Engine
 		UniformBufferObject ubo{};
 		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.view  = mainCamera.getViewMatrix();
+
+		mainCamera.aspect_ratio = static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
 		ubo.proj = mainCamera.getProjectionMatrix();
 		
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
