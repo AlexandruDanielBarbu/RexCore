@@ -17,6 +17,9 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
+#include "rex-events/Signal.hpp"
+#include "graphics/Vertex.hpp"
+#include "rex-objects/GameObject.hpp"
 
 #include <chrono>
 #include <iostream>  // report and propagate erros
@@ -42,6 +45,9 @@ constexpr uint32_t WIDTH          = 800;
 constexpr uint32_t HEIGHT         = 800;
 constexpr char     WINDOW_TITLE[] = "Rex Core";
 constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
+constexpr int      MAX_OBJECTS          = 3;
+
+std::array<GameObject, MAX_OBJECTS> gameObjects;
 
 //const std::string  MODEL_PATH           = "models/viking_room.obj";
 //const std::string  TEXTURE_PATH         = "textures/viking_room.png";
@@ -82,29 +88,6 @@ static std::vector<char> readFile(const std::string &fileName)
 	return buffer;
 }
 
-template <typename... Args>
-class Signal
-{
-  public:
-	using Callback = std::function<void(Args...)>;
-
-	void subscribe(Callback cb)
-	{
-		callbacks.push_back(std::move(cb));
-	}
-
-	void invoke(Args... args)
-	{
-		for (const auto &cb : callbacks)
-		{
-			cb(args...);
-		}
-	}
-
-  private:
-	std::vector<Callback> callbacks;
-};
-
 std::unordered_map<int, bool> keyMap;
 
 Signal<> onTabKeyPressed;
@@ -135,45 +118,6 @@ struct UniformBufferObject
 	alignas(16) glm::mat4 proj;
 };
 
-struct  Vertex
-{
-	glm::vec3 pos;
-	glm::vec3 color;
-	glm::vec2 texCoord;
-
-	static vk::VertexInputBindingDescription getVertexBindingDescription()
-	{
-		return {
-		    .binding   = 0,
-		    .stride    = sizeof(Vertex),
-		    .inputRate = vk::VertexInputRate::eVertex};
-	}
-
-	static std::array<vk::VertexInputAttributeDescription, 3> getVertexAttributeDescription()
-	{
-		return {{{.location = 0, .binding = 0, .format = vk::Format::eR32G32B32Sfloat, .offset = offsetof(Vertex, pos)},
-		         {.location = 1, .binding = 0, .format = vk::Format::eR32G32B32Sfloat, .offset = offsetof(Vertex, color)},
-		         {.location = 2, .binding = 0, .format = vk::Format::eR32G32Sfloat, .offset = offsetof(Vertex, texCoord)}}};
-
-	}
-
-	bool operator==(const Vertex &other) const
-	{
-		return pos == other.pos && color == other.color && texCoord == other.texCoord;
-	}
-};
-
-namespace std
-{
-template <>
-struct hash<Vertex>
-{
-	size_t operator()(Vertex const &vertex) const
-	{
-		return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
-	}
-};
-}        // namespace std
 
 class Camera
 {
@@ -204,32 +148,42 @@ class Camera
 			3.1. update lookAtTarget position based on mouse delta
 		*/
 
-		constexpr float cameraSpeed = 10.0f;
+		constexpr float cameraSpeed = 5.0f;
+
+		glm::vec3 moveDirection{};
 
 		if (keyMap[GLFW_KEY_W])
 		{
-			pos += glm::vec3(0, 0, 1) * cameraSpeed * deltaTime;
+			moveDirection += glm::vec3(0, 0, 1);
 		}
 		if (keyMap[GLFW_KEY_S])
 		{
-			pos -= glm::vec3(0, 0, 1) * cameraSpeed * deltaTime;
+			moveDirection -= glm::vec3(0, 0, 1);
 		}
 		if (keyMap[GLFW_KEY_D])
 		{
-			pos += glm::vec3(1, 0, 0) * cameraSpeed * deltaTime;
+			moveDirection += glm::vec3(1, 0, 0);
 		}
 		if (keyMap[GLFW_KEY_A])
 		{
-			pos -= glm::vec3(1, 0, 0) * cameraSpeed * deltaTime;
+			moveDirection -= glm::vec3(1, 0, 0);
 		}
 		if (keyMap[GLFW_KEY_E])
 		{
-			pos += glm::vec3(0, 1, 0) * cameraSpeed * deltaTime;
+			moveDirection += glm::vec3(0, 1, 0);
 		}
 		if (keyMap[GLFW_KEY_Q])
 		{
-			pos -= glm::vec3(0, 1, 0) * cameraSpeed * deltaTime;
+			moveDirection -= glm::vec3(0, 1, 0);
 		}
+
+		if (glm::length(moveDirection) > 1.0f)
+		{
+			moveDirection = glm::normalize(moveDirection);
+		}
+
+		pos += moveDirection * 0.0001f * deltaTime;
+		lookAtTarget += moveDirection * cameraSpeed * deltaTime;
 	}
 
 	void update(float deltaTime)
@@ -1404,7 +1358,7 @@ class Engine
 	}
 	
 	void mainLoop() {
-		std::cout << "All works fine!" << std::endl;
+		std::cout << "All works fine!!!!!!888888" << std::endl;
 
 		auto previousTime = std::chrono::high_resolution_clock::now();
 
@@ -1434,6 +1388,8 @@ class Engine
 		UniformBufferObject ubo{};
 		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.view  = mainCamera.getViewMatrix();
+
+		mainCamera.aspect_ratio = static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
 		ubo.proj = mainCamera.getProjectionMatrix();
 		
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
