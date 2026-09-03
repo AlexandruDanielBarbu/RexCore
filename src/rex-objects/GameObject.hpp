@@ -3,6 +3,16 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <optional>
+
+struct Mesh
+{
+	uint32_t vertexOffset;
+	uint32_t vertexCount;
+	uint32_t indexOffset;
+	uint32_t indexCount;
+};
+
 struct GameObject
 {
 	glm::vec3 position{};
@@ -29,4 +39,7 @@ struct GameObject
 
 		return model;
 	}
+
+	// Optional GameObject data
+	std::optional<Mesh> mesh;
 };

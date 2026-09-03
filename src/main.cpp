@@ -47,7 +47,7 @@ constexpr char     WINDOW_TITLE[] = "Rex Core";
 constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
 constexpr int      MAX_OBJECTS          = 3;
 
-//const std::string  MODEL_PATH           = "models/viking_room.obj";
+const std::string MODEL_PATH_VIKINGS = ASSET("models/viking_room.obj");
 //const std::string  TEXTURE_PATH         = "textures/viking_room.png";
 
 const std::string MODEL_PATH   = ASSET("models/skateboard.obj");
@@ -335,7 +335,7 @@ class Engine
 		createTextureSampler();
 
 		configureCamera();
-		loadModel();
+		loadMeshes();
 		setupGameObjects();
 
 		createVertexBuffer();
@@ -349,22 +349,28 @@ class Engine
 		createSyncObjects();
 	}
 
+	Mesh skateboard{};
+	Mesh vikings{};
+	
 	void setupGameObjects()
 	{
-		// Object 1 - Center
+		// Object 1 - Center - skate
 		gameObjects[0].position = {0.0f, 0.0f, 0.0f};
 		gameObjects[0].rotation = {0.0f, 0.0f, 0.0f};
 		gameObjects[0].scale    = {1.0f, 1.0f, 1.0f};
+		gameObjects[0].mesh     = skateboard;
 
-		// Object 2 - Left
+		// Object 2 - Left - viking
 		gameObjects[1].position = {-2.0f, 0.0f, -1.0f};
 		gameObjects[1].rotation = {0.0f, glm::radians(45.0f), 0.0f};
 		gameObjects[1].scale    = {0.75f, 0.75f, 0.75f};
-
-		// Object 3 - Right
+		gameObjects[1].mesh     = vikings;
+		
+		// Object 3 - Right - viking
 		gameObjects[2].position = {2.0f, 0.0f, -1.0f};
 		gameObjects[2].rotation = {0.0f, glm::radians(-45.0f), 0.0f};
 		gameObjects[2].scale    = {0.75f, 0.75f, 0.75f};
+		gameObjects[2].mesh     = skateboard;
 	}
 
 	void configureCamera()
@@ -374,14 +380,17 @@ class Engine
 		mainCamera.aspect_ratio = static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
 	}
 
-	void loadModel()
+	void loadModel(const std::string &model_path, Mesh &mesh)
 	{
+		mesh.vertexOffset = vertices.size();
+		mesh.indexOffset  = indices.size();
+
 		tinyobj::attrib_t                attrib;
 		std::vector<tinyobj::shape_t>    shapes;
 		std::vector<tinyobj::material_t> materials;
 		std::string                      warn, err;
 
-		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str()))
+		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, model_path.c_str()))
 		{
 			throw std::runtime_error(warn + err);
 		}
@@ -409,12 +418,25 @@ class Engine
 					vertices.push_back(vertex);
 				}
 
-				indices.push_back(it->second);
+				indices.push_back(it->second - mesh.vertexOffset);
 
 			}
 		}
 		
 		std::cout << "Model has: " << vertices.size() << " vertices." << std::endl;
+		
+		mesh.vertexCount = vertices.size() - mesh.vertexOffset;
+		mesh.indexCount  = indices.size() - mesh.indexOffset;
+	}
+
+	void loadMeshes()
+	{
+		// Load skateboard mesh
+		loadModel(MODEL_PATH, skateboard);
+
+		// Load viking room
+		loadModel(MODEL_PATH_VIKINGS, vikings);
+
 	}
 
 	vk::Format findSupportedFormat(const std::vector<vk::Format> &candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
@@ -953,8 +975,16 @@ class Engine
 				0,
 				*gameObject.descriptorSets[frameIndex],
 				nullptr);
-			
-			commandBuffers[frameIndex].drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+
+			if (gameObject.mesh.has_value())
+			{
+				commandBuffers[frameIndex].drawIndexed(
+					gameObject.mesh.value().indexCount,
+					1,
+					gameObject.mesh.value().indexOffset,
+					gameObject.mesh.value().vertexOffset,
+					0);
+			}
 		}
 
 		commandBuffers[frameIndex].endRendering();
