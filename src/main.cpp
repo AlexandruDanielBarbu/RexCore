@@ -48,10 +48,10 @@ constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
 constexpr int      MAX_OBJECTS          = 3;
 
 const std::string MODEL_PATH_VIKINGS = ASSET("models/viking_room.obj");
-//const std::string  TEXTURE_PATH         = "textures/viking_room.png";
+const std::string TEXTURE_PATH_VIKINGS = ASSET("textures/viking_room.png");
 
-const std::string MODEL_PATH   = ASSET("models/skateboard.obj");
-const std::string TEXTURE_PATH = ASSET("textures/Skateboard.png");
+const std::string MODEL_PATH_SKATEBOARD   = ASSET("models/skateboard.obj");
+const std::string TEXTURE_PATH_SKATEBOARD = ASSET("textures/Skateboard.png");
 
 const std::array<char const *, 1> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
@@ -273,17 +273,13 @@ class Engine
 
 	vk::raii::DescriptorPool         descriptorPool     = nullptr;
 	
-	// Texture
-	vk::raii::Image                  textureImage       = nullptr;
-	vk::raii::DeviceMemory           textureImageMemory = nullptr;
-	vk::raii::ImageView              textureImageView   = nullptr;
-	vk::raii::Sampler                textureSampler     = nullptr;
-
-	// Depth test texture
+	// --- Depth test texture ----------------------------------
 	vk::raii::Image			 depthImage       = nullptr;
 	vk::raii::DeviceMemory		 depthImageMemory = nullptr;
 	vk::raii::ImageView		 depthImageView   = nullptr;
 
+
+	// --- Verices and indices ---------------------------------
 	std::vector<Vertex>              vertices;
 	std::vector<uint32_t>            indices;
 
@@ -293,6 +289,8 @@ class Engine
 	vk::raii::Buffer                 indexBuffer        = nullptr;
 	vk::raii::DeviceMemory           indexBufferMemory  = nullptr;
 
+
+	// --- Graphics -------------------------------------------
 	vk::raii::Queue                  graphicsQueue  = nullptr;
 	vk::raii::SwapchainKHR           swapChain      = nullptr;
 	std::vector<vk::Image>           swapChainImages;
@@ -330,12 +328,11 @@ class Engine
 
 		createDepthResources();
 		
-		createTextureImage();
-		createTextureImageView();
-		createTextureSampler();
-
 		configureCamera();
 		loadMeshes();
+		loadTextures();
+		
+
 		setupGameObjects();
 
 		createVertexBuffer();
@@ -351,7 +348,31 @@ class Engine
 
 	Mesh skateboard{};
 	Mesh vikings{};
-	
+
+	Texture tex_skateboard{};
+	Texture tex_vikings{};
+	std::array<Texture, 2> textures;
+
+	void loadOneTexture(Texture& tex, const std::string& path)
+	{
+		createTextureImage(tex, path);
+		createTextureImageView(tex);
+		createTextureSampler(tex);
+
+	}
+	void loadTextures()
+	{
+		// skateborad
+		loadOneTexture(tex_skateboard, TEXTURE_PATH_SKATEBOARD);
+
+		// vikings
+		loadOneTexture(tex_vikings, TEXTURE_PATH_VIKINGS);
+
+		textures = {
+		    std::move(tex_skateboard),
+		    std::move(tex_vikings)};
+	}
+
 	void setupGameObjects()
 	{
 		// Object 1 - Center - skate
@@ -359,18 +380,21 @@ class Engine
 		gameObjects[0].rotation = {0.0f, 0.0f, 0.0f};
 		gameObjects[0].scale    = {1.0f, 1.0f, 1.0f};
 		gameObjects[0].mesh     = skateboard;
+		gameObjects[0].texture_id  = 0;
 
 		// Object 2 - Left - viking
 		gameObjects[1].position = {-2.0f, 0.0f, -1.0f};
 		gameObjects[1].rotation = {0.0f, glm::radians(45.0f), 0.0f};
 		gameObjects[1].scale    = {0.75f, 0.75f, 0.75f};
 		gameObjects[1].mesh     = vikings;
+		gameObjects[1].texture_id  = 1;
 		
-		// Object 3 - Right - viking
+		// Object 3 - Right - skate
 		gameObjects[2].position = {2.0f, 0.0f, -1.0f};
 		gameObjects[2].rotation = {0.0f, glm::radians(-45.0f), 0.0f};
 		gameObjects[2].scale    = {0.75f, 0.75f, 0.75f};
 		gameObjects[2].mesh     = skateboard;
+		gameObjects[2].texture_id  = 0;
 	}
 
 	void configureCamera()
@@ -432,11 +456,10 @@ class Engine
 	void loadMeshes()
 	{
 		// Load skateboard mesh
-		loadModel(MODEL_PATH, skateboard);
+		loadModel(MODEL_PATH_SKATEBOARD, skateboard);
 
 		// Load viking room
 		loadModel(MODEL_PATH_VIKINGS, vikings);
-
 	}
 
 	vk::Format findSupportedFormat(const std::vector<vk::Format> &candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
@@ -470,7 +493,7 @@ class Engine
 		depthImageView                         = createImageView(depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth);
 	}
 
-	void createTextureSampler()
+	void createTextureSampler(Texture& tex)
 	{
 		vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
 		vk::SamplerCreateInfo samplerInfo{
@@ -490,7 +513,7 @@ class Engine
 			.borderColor      = vk::BorderColor::eIntOpaqueBlack,
 			.unnormalizedCoordinates = vk::False};
 
-		textureSampler = vk::raii::Sampler(device, samplerInfo);
+		tex.textureSampler = vk::raii::Sampler(device, samplerInfo);
 	}
 
 	vk::raii::ImageView createImageView(vk::Image const &image, vk::Format format, vk::ImageAspectFlags aspectFlags)
@@ -504,9 +527,9 @@ class Engine
 		return vk::raii::ImageView(device, viewInfo);
 	}
 
-	void createTextureImageView()
+	void createTextureImageView(Texture& tex)
 	{
-		textureImageView = createImageView(*textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor);
+		tex.textureImageView = createImageView(*tex.textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor);
 	}
 
 	vk::raii::CommandBuffer beginSingleTimeCommands()
@@ -553,10 +576,10 @@ class Engine
 		return {std::move(image), std::move(imageMemory)};
 	}
 
-	void createTextureImage()
+	void createTextureImage(Texture &tex, const std::string &texture_path)
 	{
 		int            texWidth, texHeight, texChannels;
-		stbi_uc       *pixels    = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		stbi_uc       *pixels    = stbi_load(texture_path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		vk::DeviceSize imageSize = texWidth * texHeight * 4;
 
 		if (!pixels)
@@ -576,7 +599,7 @@ class Engine
 		
 		stbi_image_free(pixels);
 
-		std::tie(textureImage, textureImageMemory) = 
+		std::tie(tex.textureImage, tex.textureImageMemory) = 
 			createImage(texWidth,
 				texHeight,
 		                vk::Format::eR8G8B8A8Srgb,
@@ -585,9 +608,9 @@ class Engine
 		                vk::MemoryPropertyFlagBits::eDeviceLocal);
 
 		vk::raii::CommandBuffer commandBuffer = beginSingleTimeCommands();
-		transitionImageLayout(commandBuffer, textureImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
-		copyBufferToImage(commandBuffer, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-		transitionImageLayout(commandBuffer, textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+		transitionImageLayout(commandBuffer, tex.textureImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+		copyBufferToImage(commandBuffer, stagingBuffer, tex.textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+		transitionImageLayout(commandBuffer, tex.textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
 		endSingleTimeCommands(std::move(commandBuffer));
 	}
 
@@ -595,6 +618,8 @@ class Engine
 	{
 		for (auto& gameObject : gameObjects)
 		{
+			uint32_t texture_id = gameObject.texture_id.has_value() ? gameObject.texture_id.value() : 0;
+
 			std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, *descriptorSetLayout);
 
 			vk::DescriptorSetAllocateInfo        allocInfo{
@@ -607,15 +632,17 @@ class Engine
 
 			for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 			{
+				Texture                 &tex = textures[texture_id];
+
 				vk::DescriptorBufferInfo bufferInfo{
 					.buffer = gameObject.uniformBuffers[i],
 					.offset = 0,
 					.range = sizeof(UniformBufferObject)};
 
 				vk::DescriptorImageInfo  imageInfo{
-					.sampler = textureSampler,
-					.imageView = textureImageView,
-					.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal};
+				    .sampler     = tex.textureSampler,
+				    .imageView   = tex.textureImageView,
+				    .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal};
 
 				std::array<vk::WriteDescriptorSet, 2> descriptorWrites{{
 					{.dstSet          = gameObject.descriptorSets[i],

@@ -5,6 +5,14 @@
 
 #include <optional>
 
+struct Texture
+{
+	vk::raii::Image        textureImage       = nullptr;
+	vk::raii::DeviceMemory textureImageMemory = nullptr;
+	vk::raii::ImageView    textureImageView   = nullptr;
+	vk::raii::Sampler      textureSampler     = nullptr;
+};
+
 struct Mesh
 {
 	uint32_t vertexOffset;
@@ -42,4 +50,5 @@ struct GameObject
 
 	// Optional GameObject data
 	std::optional<Mesh> mesh;
+	std::optional<uint32_t> texture_id;
 };
