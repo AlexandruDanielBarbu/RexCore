@@ -142,14 +142,10 @@ class Camera
 	{
 		using Vector3 = glm::vec3;
 
-		/*
-		WASD movement
-		3. check mouse rotation
-			3.1. update lookAtTarget position based on mouse delta
-		*/
-
 		constexpr float cameraSpeed = 5.0f;
+		constexpr float mouseSensitivity = 0.5f;
 
+		
 		Vector3 moveDirection{};
 
 		if (keyMap[GLFW_KEY_W])
@@ -190,6 +186,24 @@ class Camera
 
 		pos += newMoveDirectionLocalSpace * cameraSpeed * deltaTime;
 		lookAtTarget += newMoveDirectionLocalSpace * cameraSpeed * deltaTime;
+
+
+		double xpos, ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+
+		float deltax = (xpos - oldxpos) * -mouseSensitivity;
+		float deltay = (ypos - oldypos) * -mouseSensitivity;
+		
+		oldxpos      = xpos;
+		oldypos      = ypos;
+		
+		float radius = glm::length(lookAtTarget - pos);
+
+		glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(deltax), cameraUp);
+		rotation           = glm::rotate(rotation, glm::radians(deltay), cameraRight);
+
+		Vector3 newForward = glm::normalize(Vector3(rotation * glm::vec4(cameraForward, 0.0f)));
+		lookAtTarget       = pos + newForward * radius;
 	}
 
 	void update(float deltaTime)
@@ -225,6 +239,7 @@ class Camera
 		return glm::lookAt(pos, lookAtTarget, glm::vec3(0.0f, 1.0f, 0.0f));
 	}
 
+	GLFWwindow *window = nullptr;
   private:
 	CameraState state = CameraState::FreeCam;
 
@@ -237,6 +252,8 @@ class Camera
 
 	double camera_yaw   = 0;
 	double camera_pitch = 0;
+
+	double oldxpos{}, oldypos{};
 };
 
 class Engine
@@ -263,6 +280,7 @@ class Engine
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 		glfwSetKeyCallback(window, key_callback);
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	}
 
 	static void framebufferResizeCallback(GLFWwindow *window, int width, int height)
@@ -404,6 +422,7 @@ class Engine
 		// load main camera properties from an .ini file
 
 		mainCamera.aspect_ratio = static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
+		mainCamera.window       = window;
 	}
 
 	void loadModel(const std::string &model_path, Mesh &mesh)
