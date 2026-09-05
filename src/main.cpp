@@ -140,6 +140,8 @@ class Camera
 
 	void freeCamLogic(float deltaTime)
 	{
+		using Vector3 = glm::vec3;
+
 		/*
 		WASD movement
 		3. check mouse rotation
@@ -148,31 +150,31 @@ class Camera
 
 		constexpr float cameraSpeed = 5.0f;
 
-		glm::vec3 moveDirection{};
+		Vector3 moveDirection{};
 
 		if (keyMap[GLFW_KEY_W])
 		{
-			moveDirection += glm::vec3(0, 0, 1);
+			moveDirection += Vector3(0, 0, 1);
 		}
 		if (keyMap[GLFW_KEY_S])
 		{
-			moveDirection -= glm::vec3(0, 0, 1);
+			moveDirection -= Vector3(0, 0, 1);
 		}
 		if (keyMap[GLFW_KEY_D])
 		{
-			moveDirection += glm::vec3(1, 0, 0);
+			moveDirection += Vector3(1, 0, 0);
 		}
 		if (keyMap[GLFW_KEY_A])
 		{
-			moveDirection -= glm::vec3(1, 0, 0);
+			moveDirection -= Vector3(1, 0, 0);
 		}
 		if (keyMap[GLFW_KEY_E])
 		{
-			moveDirection += glm::vec3(0, 1, 0);
+			moveDirection += Vector3(0, 1, 0);
 		}
 		if (keyMap[GLFW_KEY_Q])
 		{
-			moveDirection -= glm::vec3(0, 1, 0);
+			moveDirection -= Vector3(0, 1, 0);
 		}
 
 		if (glm::length(moveDirection) > 1.0f)
@@ -180,8 +182,14 @@ class Camera
 			moveDirection = glm::normalize(moveDirection);
 		}
 
-		pos += moveDirection * 0.0001f * deltaTime;
-		lookAtTarget += moveDirection * cameraSpeed * deltaTime;
+		Vector3 cameraForward = glm::normalize(lookAtTarget - pos);
+		Vector3 cameraRight   = glm::normalize(glm::cross(cameraForward, Vector3(0,1,0)));
+		Vector3 cameraUp      = glm::normalize(glm::cross(cameraRight, cameraForward));
+
+		Vector3 newMoveDirectionLocalSpace = cameraRight * moveDirection.x + cameraUp * moveDirection.y + cameraForward * moveDirection.z;
+
+		pos += newMoveDirectionLocalSpace * cameraSpeed * deltaTime;
+		lookAtTarget += newMoveDirectionLocalSpace * cameraSpeed * deltaTime;
 	}
 
 	void update(float deltaTime)
@@ -214,13 +222,13 @@ class Camera
 
 	glm::mat4 getViewMatrix()
 	{
-		return glm::lookAt(pos, lookAtTarget, glm::vec3(0.0f, 0.0f, 1.0f));
+		return glm::lookAt(pos, lookAtTarget, glm::vec3(0.0f, 1.0f, 0.0f));
 	}
 
   private:
 	CameraState state = CameraState::FreeCam;
 
-	glm::vec3   pos{2,2,2};
+	glm::vec3   pos{0 ,2,-5};
 	glm::vec3   lookAtTarget{0,0,0};
 
 	float camera_fov  = glm::radians(45.0f);
@@ -349,8 +357,6 @@ class Engine
 	Mesh skateboard{};
 	Mesh vikings{};
 
-	Texture tex_skateboard{};
-	Texture tex_vikings{};
 	std::array<Texture, 2> textures;
 
 	void loadOneTexture(Texture& tex, const std::string& path)
@@ -363,14 +369,10 @@ class Engine
 	void loadTextures()
 	{
 		// skateborad
-		loadOneTexture(tex_skateboard, TEXTURE_PATH_SKATEBOARD);
+		loadOneTexture(textures[0], TEXTURE_PATH_SKATEBOARD);
 
 		// vikings
-		loadOneTexture(tex_vikings, TEXTURE_PATH_VIKINGS);
-
-		textures = {
-		    std::move(tex_skateboard),
-		    std::move(tex_vikings)};
+		loadOneTexture(textures[1], TEXTURE_PATH_VIKINGS);
 	}
 
 	void setupGameObjects()
