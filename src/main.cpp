@@ -41,8 +41,8 @@ constexpr bool enableValidationLayers = true;
 #	define ASSET(p) REXCORE_ASSETS "/assets/" p
 #endif        // NDEBUG
 
-constexpr uint32_t WIDTH          = 800;
-constexpr uint32_t HEIGHT         = 800;
+constexpr uint32_t WIDTH          = 1920;
+constexpr uint32_t HEIGHT         = 1080;
 constexpr char     WINDOW_TITLE[] = "Rex Core";
 constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
 constexpr int      MAX_OBJECTS          = 3;
@@ -305,7 +305,7 @@ class Engine
 	vk::raii::ImageView		 depthImageView   = nullptr;
 
 
-	// --- Verices and indices ---------------------------------
+	// --- Vertices and indices --------------------------------
 	std::vector<Vertex>              vertices;
 	std::vector<uint32_t>            indices;
 
