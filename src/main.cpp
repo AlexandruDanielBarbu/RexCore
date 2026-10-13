@@ -17,6 +17,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
+#include "spdlog/spdlog.h"
+
 #include "rex-events/Signal.hpp"
 #include "graphics/Vertex.hpp"
 #include "rex-objects/GameObject.hpp"
@@ -62,7 +64,8 @@ static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSever
                                                       const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                                       void                                         *pUserData)
 {
-	std::cerr << "validation layer:\n\ttype " << to_string(type) << "\n\tmsg: " << pCallbackData->pMessage << std::endl;
+	spdlog::error("Validation layer:\n\ttype {0}\n\tmsg: {1}", to_string(type), pCallbackData->pMessage);
+	//std::cerr << "BAAAAAAAA\n\nValidation layer:\n\ttype " << to_string(type) << "\n\tmsg: " << pCallbackData->pMessage << std::endl;
 
 	return vk::False;
 }
@@ -468,7 +471,7 @@ class Engine
 			}
 		}
 		
-		std::cout << "Model has: " << vertices.size() << " vertices." << std::endl;
+		spdlog::info("Model has: {0} vertices.", vertices.size());
 		
 		mesh.vertexCount = vertices.size() - mesh.vertexOffset;
 		mesh.indexCount  = indices.size() - mesh.indexOffset;
@@ -1484,10 +1487,13 @@ class Engine
 		    .messageSeverity = severityFlags,
 		    .messageType     = messageTypeFlags,
 		    .pfnUserCallback = &debugCallback};
+
+		debugMessenger = instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
 	}
 	
 	void mainLoop() {
-		std::cout << "All works fine!!!!!!888888" << std::endl;
+		
+		spdlog::info("All works fine!");
 
 		auto previousTime = std::chrono::high_resolution_clock::now();
 
@@ -1606,7 +1612,7 @@ int main()
 	}
 	catch (const std::exception &e)
 	{
-		std::cerr << "EXCEPTION!!!" << e.what() << std::endl;
+		spdlog::critical(e.what());
 		return EXIT_FAILURE;
 	}
 

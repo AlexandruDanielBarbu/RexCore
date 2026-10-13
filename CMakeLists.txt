@@ -29,6 +29,7 @@ add_custom_command(
 
 add_custom_target(generate_shaders DEPENDS ${SHADER_BINARY})
 
+add_subdirectory(third_party/spdlog)
 
 # Application executable
 file(GLOB_RECURSE SOURCES src/*.cpp)
@@ -41,6 +42,7 @@ target_link_libraries(RexCore PRIVATE
     glfw 
     glm::glm 
     tinyobjloader::tinyobjloader
+    spdlog::spdlog
 )
 
 target_include_directories(RexCore PRIVATE ${stb_INCLUDE_DIRS})
