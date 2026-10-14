@@ -47,7 +47,7 @@ constexpr uint32_t WIDTH          = 1920;
 constexpr uint32_t HEIGHT         = 1080;
 constexpr char     WINDOW_TITLE[] = "Rex Core";
 constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
-constexpr int      MAX_OBJECTS          = 3;
+constexpr int      MAX_OBJECTS          = 4; // 2 skates, 1 viking room, 1 grid, 3 axis
 
 const std::string MODEL_PATH_VIKINGS = ASSET("models/viking_room.obj");
 const std::string TEXTURE_PATH_VIKINGS = ASSET("textures/viking_room.png");
@@ -380,6 +380,7 @@ class Engine
 
 	Mesh skateboard{};
 	Mesh vikings{};
+	Mesh grid{};
 
 	std::array<Texture, 2> textures;
 
@@ -421,6 +422,13 @@ class Engine
 		gameObjects[2].scale    = {0.75f, 0.75f, 0.75f};
 		gameObjects[2].mesh     = skateboard;
 		gameObjects[2].texture_id  = 0;
+
+		// Object 4 - Grid
+		gameObjects[3].position   = {0.0f, 0.0f, 0.0f};
+		gameObjects[3].rotation   = {0.0f, 0.0f, 0.0f};
+		gameObjects[3].scale      = {1.0f, 1.0f, 1.0f};
+		gameObjects[3].mesh       = grid;
+
 	}
 
 	void configureCamera()
@@ -480,6 +488,37 @@ class Engine
 		mesh.indexCount  = indices.size() - mesh.indexOffset;
 	}
 
+	void loadGrid(Mesh& mesh)
+	{
+		mesh.vertexOffset = vertices.size();
+		mesh.indexOffset  = indices.size();
+
+		int line_size = 100;
+		for (int i = -50; i <= 50; i++)
+		{
+			uint32_t base = static_cast<uint32_t>(vertices.size() - mesh.vertexOffset);
+
+			Vertex vert1{}, vert2{};
+			vert1.pos = {i, 0.0f, line_size / 2};
+			vert2.pos = {i, 0.0f, -line_size / 2};
+
+			vert1.color = {1.0f, 1.0f, 1.0f};
+			vert2.color = {1.0f, 1.0f, 1.0f};
+
+			vertices.push_back(vert1);
+			indices.push_back(base);
+
+			vertices.push_back(vert2);
+			indices.push_back(base + 1);
+
+		}
+
+		mesh.vertexCount = vertices.size() - mesh.vertexOffset;
+		mesh.indexCount  = indices.size() - mesh.indexOffset;
+
+		spdlog::info("Grid loaded into memory!");
+	}
+
 	void loadMeshes()
 	{
 		// Load skateboard mesh
@@ -487,6 +526,8 @@ class Engine
 
 		// Load viking room
 		loadModel(MODEL_PATH_VIKINGS, vikings);
+	
+		loadGrid(grid);
 	}
 
 	vk::Format findSupportedFormat(const std::vector<vk::Format> &candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
@@ -1021,8 +1062,10 @@ class Engine
 		commandBuffers[frameIndex].setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
 		commandBuffers[frameIndex].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
 
-		for (auto &gameObject : gameObjects)
+		for (size_t i = 0; i < 3; i++)
 		{
+			auto &gameObject = gameObjects[i];
+
 			commandBuffers[frameIndex].bindDescriptorSets(
 				vk::PipelineBindPoint::eGraphics,
 				pipelineLayout,
@@ -1041,6 +1084,28 @@ class Engine
 			}
 		}
 
+		commandBuffers[frameIndex].bindPipeline(vk::PipelineBindPoint::eGraphics, *gizmoPipeline);
+		for (size_t i = 3; i < gameObjects.size(); i++)
+		{
+			auto &gameObject = gameObjects[i];
+
+			commandBuffers[frameIndex].bindDescriptorSets(
+			    vk::PipelineBindPoint::eGraphics,
+			    pipelineLayout,
+			    0,
+			    *gameObject.descriptorSets[frameIndex],
+			    nullptr);
+
+			if (gameObject.mesh.has_value())
+			{
+				commandBuffers[frameIndex].drawIndexed(
+				    gameObject.mesh.value().indexCount,
+				    1,
+				    gameObject.mesh.value().indexOffset,
+				    gameObject.mesh.value().vertexOffset,
+				    0);
+			}
+		}
 		commandBuffers[frameIndex].endRendering();
 
 		// After rendering, transition the swapchain image to vk::ImageLayout::ePresentSrcKHR
