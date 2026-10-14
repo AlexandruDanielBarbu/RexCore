@@ -329,6 +329,7 @@ class Engine
 	vk::raii::DescriptorSetLayout    descriptorSetLayout = nullptr;
 	vk::raii::PipelineLayout         pipelineLayout   = nullptr;
 	vk::raii::Pipeline               graphicsPipeline = nullptr;
+	vk::raii::Pipeline               gizmoPipeline    = nullptr;
 	vk::raii::CommandPool            commandPool      = nullptr;
 
 	std::array<GameObject, MAX_OBJECTS> gameObjects;
@@ -352,7 +353,9 @@ class Engine
 		createImageViews();
 		
 		createDescriptorSetLayout();
-		createGraphicsPipeline();
+		createPipeline(graphicsPipeline, "slang.spv", vk::PrimitiveTopology::eTriangleList, vk::PolygonMode::eFill, vk::CullModeFlagBits::eBack, vk::FrontFace::eCounterClockwise);
+		createPipeline(gizmoPipeline, "gizmo-test.spv", vk::PrimitiveTopology::eLineList, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eCounterClockwise);
+		
 		createCommandPool();
 
 		createDepthResources();
@@ -1101,9 +1104,11 @@ class Engine
 		return shaderModule;
 	}
 
-	void createGraphicsPipeline() {
+	void createPipeline(vk::raii::Pipeline& pipeline, const std::string &shaderCodeFileName, vk::PrimitiveTopology topology, vk::PolygonMode polyMode, vk::CullModeFlagBits cullMode, vk::FrontFace frontFaceMode)
+	{											   
 		// Shader Module
-		auto shaderCode = readFile("slang.spv");
+		//auto shaderCode = readFile("slang.spv");
+		auto shaderCode   = readFile(shaderCodeFileName);
 		auto shaderModule = createShaderModule(shaderCode);
 
 		vk::PipelineShaderStageCreateInfo vertexShaderStageInfo{
@@ -1130,7 +1135,8 @@ class Engine
 		    .pVertexAttributeDescriptions    = vertexAttributeDescription.data()};
 		
 		vk::PipelineInputAssemblyStateCreateInfo inputeAssemblerInfo{
-		    .topology = vk::PrimitiveTopology::eTriangleList};
+		    //.topology = vk::PrimitiveTopology::eTriangleList};
+		    .topology = topology};
 
 		std::vector<vk::DynamicState> dynamicStates = {
 		    vk::DynamicState::eViewport,
@@ -1147,9 +1153,12 @@ class Engine
 		vk::PipelineRasterizationStateCreateInfo rasterizationStateInfo{
 		    .depthClampEnable        = vk::False,
 		    .rasterizerDiscardEnable = vk::False,
-		    .polygonMode             = vk::PolygonMode::eFill,
-		    .cullMode                = vk::CullModeFlagBits::eBack,
-		    .frontFace               = vk::FrontFace::eCounterClockwise,
+		    //.polygonMode             = vk::PolygonMode::eFill,
+		    //.cullMode                = vk::CullModeFlagBits::eBack,
+		    //.frontFace               = vk::FrontFace::eCounterClockwise,
+		    .polygonMode             = polyMode,
+		    .cullMode                = cullMode,
+		    .frontFace               = frontFaceMode,
 		    .depthBiasEnable         = vk::False,
 		    .lineWidth               = 1.0f};
 
@@ -1194,7 +1203,7 @@ class Engine
 		        .renderPass          = nullptr},
 		    {.colorAttachmentCount = 1, .pColorAttachmentFormats = &swapChainSurfaceFormat.format, .depthAttachmentFormat = findDepthFormat()}};
 
-		graphicsPipeline = vk::raii::Pipeline(device, nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+		pipeline = vk::raii::Pipeline(device, nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
 	}
 
 	void createImageViews()
