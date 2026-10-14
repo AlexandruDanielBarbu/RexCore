@@ -176,3 +176,4 @@ Released under the MIT License. See [LICENSE](LICENSE).
 - https://docs.vulkan.org/tutorial/latest/06_Texture_mapping/02_Combined_image_sampler.html
 - https://docs.vulkan.org/tutorial/latest/07_Depth_buffering.html
 - https://docs.vulkan.org/tutorial/latest/08_Loading_models.html
+- https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/introduction.html
