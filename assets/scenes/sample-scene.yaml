@@ -1,0 +1,27 @@
+# Meshes are loaded in order; their position in the list is the index
+meshes:
+  - name: skateboard        # index 0
+    path: models/skateboard.obj
+  - name: viking_room       # index 1
+    path: models/viking_room.obj
+
+# Textures are loaded in order; their position in the list is the index
+textures:
+  - name: skateboard        # index 0
+    path: textures/skateboard.png
+  - name: viking_room       # index 1
+    path: textures/viking_room.png
+
+gameobjects:
+  - name: viking_room
+    mesh: 1                 # index into meshes
+    texture: 1              # index into textures
+    position: [0.0, 0.0, 0.0]
+    rotation: [0.0, 0.0, 0.0]   # Euler angles, degrees
+    scale: [1.0, 1.0, 1.0]
+  - name: skateboard
+    mesh: 0                 # index into meshes
+    texture: 0              # index into textures
+    position: [-2.0, 0.0, -1.0]
+    rotation: [0.0, 45.0, 0.0]   # Euler angles, degrees
+    scale: [1.0, 1.0, 1.0]
