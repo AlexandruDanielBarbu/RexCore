@@ -361,11 +361,8 @@ class Engine
 		createDepthResources();
 		
 		configureCamera();
-		loadMeshes();
-		loadTextures();
 		
-
-		setupGameObjects();
+		loadGameScene();
 
 		createVertexBuffer();
 		createIndexBuffer();
@@ -376,6 +373,34 @@ class Engine
 
 		createCommandBuffers();
 		createSyncObjects();
+	}
+
+//#define USE_SCENE_LOADER
+#ifdef USE_SCENE_LOADER
+	bool use_scene_loader = true;
+#else
+	bool use_scene_loader = false;
+#endif // USE_SCENE_LOADER
+
+	void loadGameScene()
+	{
+		if (use_scene_loader)
+		{
+			/* TODO
+				1. Read YAML file
+				2. for each mesh, load meshes in a vector
+				3. for each texture, load textures in a vector
+				4. for each game object load the appropriate parameters to the coresponding place
+			*/
+			loadAndSetupGismos();
+		}
+		else
+		{
+			loadMeshes();
+			loadTextures();
+			setupGameObjects();
+			loadAndSetupGismos();
+		}
 	}
 
 	Mesh skateboard{};
@@ -422,13 +447,6 @@ class Engine
 		gameObjects[2].scale    = {0.75f, 0.75f, 0.75f};
 		gameObjects[2].mesh     = skateboard;
 		gameObjects[2].texture_id  = 0;
-
-		// Object 4 - Grid
-		gameObjects[3].position   = {0.0f, 0.0f, 0.0f};
-		gameObjects[3].rotation   = {0.0f, 0.0f, 0.0f};
-		gameObjects[3].scale      = {1.0f, 1.0f, 1.0f};
-		gameObjects[3].mesh       = grid;
-
 	}
 
 	void configureCamera()
@@ -576,8 +594,18 @@ class Engine
 
 		// Load viking room
 		loadModel(MODEL_PATH_VIKINGS, vikings);
-	
+	}
+
+	void loadAndSetupGismos()
+	{
+		// Be carefull! The grid uses the skateboard texture which may not be loaded, even if it is bogus.
 		loadGizmos(grid);
+
+		// Object 4 - Gismos
+		gameObjects[3].position = {0.0f, 0.0f, 0.0f};
+		gameObjects[3].rotation = {0.0f, 0.0f, 0.0f};
+		gameObjects[3].scale    = {1.0f, 1.0f, 1.0f};
+		gameObjects[3].mesh     = grid;
 	}
 
 	vk::Format findSupportedFormat(const std::vector<vk::Format> &candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
