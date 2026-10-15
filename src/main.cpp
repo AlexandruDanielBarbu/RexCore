@@ -47,7 +47,7 @@ constexpr uint32_t WIDTH          = 1920;
 constexpr uint32_t HEIGHT         = 1080;
 constexpr char     WINDOW_TITLE[] = "Rex Core";
 constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
-constexpr int      MAX_OBJECTS          = 4; // 2 skates, 1 viking room, 1 grid, 3 axis
+constexpr int      MAX_OBJECTS          = 4; // 2 skates, 1 viking room, 1 set og gismos {grid and 3 axis}
 
 const std::string MODEL_PATH_VIKINGS = ASSET("models/viking_room.obj");
 const std::string TEXTURE_PATH_VIKINGS = ASSET("textures/viking_room.png");
@@ -251,7 +251,7 @@ class Camera
 
 	float camera_fov  = glm::radians(45.0f);
 	float camera_near = 0.1f;
-	float camera_far  = 10.0f;
+	float camera_far  = 100.0f;
 
 	double camera_yaw   = 0;
 	double camera_pitch = 0;
@@ -488,22 +488,32 @@ class Engine
 		mesh.indexCount  = indices.size() - mesh.indexOffset;
 	}
 
-	void loadGrid(Mesh& mesh)
+	void loadGizmos(Mesh& mesh)
 	{
 		mesh.vertexOffset = vertices.size();
 		mesh.indexOffset  = indices.size();
 
-		int line_size = 100;
-		for (int i = -50; i <= 50; i++)
+		// Loading grid
+		int line_length = 100;
+		int grid_res  = 50;
+		for (int i = -grid_res; i <= grid_res; i++)
 		{
 			uint32_t base = static_cast<uint32_t>(vertices.size() - mesh.vertexOffset);
 
 			Vertex vert1{}, vert2{};
-			vert1.pos = {i, 0.0f, line_size / 2};
-			vert2.pos = {i, 0.0f, -line_size / 2};
+			vert1.pos = {i, 0.0f, line_length / 2};
+			vert2.pos = {i, 0.0f, -line_length / 2};
 
-			vert1.color = {1.0f, 1.0f, 1.0f};
-			vert2.color = {1.0f, 1.0f, 1.0f};
+			if (i==0)
+			{
+				vert1.color = {0.0f, 0.0f, 1.0f};
+				vert2.color = {0.0f, 0.0f, 1.0f};
+			}
+			else
+			{
+				vert1.color = {1.0f, 1.0f, 1.0f};
+				vert2.color = {1.0f, 1.0f, 1.0f};
+			}
 
 			vertices.push_back(vert1);
 			indices.push_back(base);
@@ -511,6 +521,46 @@ class Engine
 			vertices.push_back(vert2);
 			indices.push_back(base + 1);
 
+			Vertex vert3{}, vert4{};
+			vert3.pos = {line_length / 2, 0.0f, i};
+			vert4.pos = {-line_length / 2, 0.0f, i};
+
+			if (i==0)
+			{
+				vert3.color = {1.0f, 0.0f, 0.0f};
+				vert4.color = {1.0f, 0.0f, 0.0f};
+			}
+			else
+			{
+				vert3.color = {1.0f, 1.0f, 1.0f};
+				vert4.color = {1.0f, 1.0f, 1.0f};
+			}
+
+			vertices.push_back(vert3);
+			indices.push_back(base + 2);
+
+			vertices.push_back(vert4);
+			indices.push_back(base + 3);
+
+		}
+
+		// loading OY axis
+		{
+			uint32_t base = static_cast<uint32_t>(vertices.size() - mesh.vertexOffset);
+
+			// OY
+			Vertex vert1{}, vert2{};
+			vert1.pos = {0.0f,  line_length / 2, 0.0f};
+			vert2.pos = {0.0f, -line_length / 2, 0.0f};
+
+			vert1.color = {0.0f, 1.0f, 0.0f};
+			vert2.color = {0.0f, 1.0f, 0.0f};
+
+			vertices.push_back(vert1);
+			indices.push_back(base);
+
+			vertices.push_back(vert2);
+			indices.push_back(base + 1);
 		}
 
 		mesh.vertexCount = vertices.size() - mesh.vertexOffset;
@@ -527,7 +577,7 @@ class Engine
 		// Load viking room
 		loadModel(MODEL_PATH_VIKINGS, vikings);
 	
-		loadGrid(grid);
+		loadGizmos(grid);
 	}
 
 	vk::Format findSupportedFormat(const std::vector<vk::Format> &candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
