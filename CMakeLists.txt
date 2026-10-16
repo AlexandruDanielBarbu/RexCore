@@ -39,6 +39,15 @@ add_custom_target(generate_shaders DEPENDS ${SHADER_BINARIES})
 
 add_subdirectory(third_party/spdlog)
 
+# yaml-cpp: library only (no tests, parse tools, or install rules)
+set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(YAML_CPP_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
+set(YAML_CPP_INSTALL OFF CACHE BOOL "" FORCE)
+# Match RexCore's dynamic MSVC runtime (/MD); a static /MT yaml-cpp causes LNK2038/LNK2005
+set(YAML_MSVC_SHARED_RT ON CACHE BOOL "" FORCE)
+add_subdirectory(third_party/yaml-cpp-master)
+
 # Application executable
 file(GLOB_RECURSE SOURCES src/*.cpp)
 add_executable(RexCore ${SOURCES})
@@ -51,6 +60,7 @@ target_link_libraries(RexCore PRIVATE
     glm::glm 
     tinyobjloader::tinyobjloader
     spdlog::spdlog
+    yaml-cpp::yaml-cpp
 )
 
 target_include_directories(RexCore PRIVATE ${stb_INCLUDE_DIRS})

@@ -18,6 +18,7 @@
 #include <glm/gtx/hash.hpp>
 
 #include "spdlog/spdlog.h"
+#include <yaml-cpp/yaml.h>
 
 #include "rex-events/Signal.hpp"
 #include "graphics/Vertex.hpp"
@@ -54,6 +55,8 @@ const std::string TEXTURE_PATH_VIKINGS = ASSET("textures/viking_room.png");
 
 const std::string MODEL_PATH_SKATEBOARD   = ASSET("models/skateboard.obj");
 const std::string TEXTURE_PATH_SKATEBOARD = ASSET("textures/Skateboard.png");
+
+const std::string SAMPLE_SCENE_YAML_FILE = ASSET("scenes/sample-scene.yaml");
 
 const std::array<char const *, 1> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
@@ -375,13 +378,29 @@ class Engine
 		createSyncObjects();
 	}
 
-//#define USE_SCENE_LOADER
+#define USE_SCENE_LOADER
 #ifdef USE_SCENE_LOADER
 	bool use_scene_loader = true;
 #else
 	bool use_scene_loader = false;
 #endif // USE_SCENE_LOADER
 
+	struct GenericEngineResource
+	{
+		std::string name;
+		std::string path;
+	};
+
+	struct GameObjectsResource
+	{
+		std::string name;
+		uint32_t    mesh;
+		uint32_t    texture;
+		float       position[3];
+		float       rotation[3];
+		float       scale[3];
+	};
+	
 	void loadGameScene()
 	{
 		if (use_scene_loader)
@@ -392,6 +411,96 @@ class Engine
 				3. for each texture, load textures in a vector
 				4. for each game object load the appropriate parameters to the coresponding place
 			*/
+			YAML::Node config = YAML::LoadFile(SAMPLE_SCENE_YAML_FILE);
+			const std::string assetRoot = ASSET("");
+
+			// Load Textures
+			{
+				std::vector<GenericEngineResource> textureResources;
+
+				const YAML::Node textureNodes = config["textures"];
+				if (textureNodes && textureNodes.IsSequence())
+				{
+					for (size_t i = 0; i < textureNodes.size(); i++)
+					{
+						const YAML::Node node = textureNodes[i];
+						GenericEngineResource tex;
+						tex.name = node["name"].as<std::string>();
+						tex.path = node["path"].as<std::string>();
+						textureResources.push_back(tex);
+					}
+				}
+
+				assert(textureResources.size() <= textures.size());
+				for (size_t i = 0; i < textureResources.size(); i++)
+				{
+					loadOneTexture(textures[i], assetRoot + textureResources[i].path);
+				}
+			}
+
+			// Load meshes
+			{
+				std::vector<GenericEngineResource> meshesResources;
+
+				const YAML::Node meshNode = config["meshes"];
+				if (meshNode && meshNode.IsSequence())
+				{
+					for (size_t i = 0; i < meshNode.size(); i++)
+					{
+						const YAML::Node node = meshNode[i];
+						GenericEngineResource mesh;
+						mesh.name = node["name"].as<std::string>();
+						mesh.path = node["path"].as<std::string>();
+						meshesResources.push_back(mesh);
+					}
+				}
+
+				assert(meshesResources.size() <= meshes.size());
+				for (size_t i = 0; i < meshesResources.size(); i++)
+				{
+					loadModel(assetRoot + meshesResources[i].path, meshes[i]);
+				}
+			}
+
+			// Load Game Object
+			{
+				std::vector<GameObjectsResource> objectResources;
+			
+				const YAML::Node objectNodes = config["gameobjects"];
+				if (objectNodes && objectNodes.IsSequence())
+				{
+					for (size_t i = 0; i < objectNodes.size(); i++)
+					{
+						const YAML::Node node = objectNodes[i];
+						GameObjectsResource obj;
+						obj.name    = node["name"].as<std::string>();
+						obj.mesh    = node["mesh"].as<uint32_t>();
+						obj.texture = node["texture"].as<uint32_t>();
+						for (int k = 0; k < 3; k++)
+						{
+							obj.position[k] = node["position"][k].as<float>();
+							obj.rotation[k] = node["rotation"][k].as<float>();
+							obj.scale[k]    = node["scale"][k].as<float>();
+						}
+						objectResources.push_back(obj);
+					}
+				}
+
+				// Index 3+ is reserved for gizmos (see loadAndSetupGismos)
+				assert(objectResources.size() <= 3);
+				for (size_t i = 0; i < objectResources.size(); i++)
+				{
+					const GameObjectsResource &res = objectResources[i];
+					GameObject                &obj = gameObjects[i];
+
+					obj.position   = glm::vec3(res.position[0], res.position[1], res.position[2]);
+					obj.rotation   = glm::radians(glm::vec3(res.rotation[0], res.rotation[1], res.rotation[2]));
+					obj.scale      = glm::vec3(res.scale[0], res.scale[1], res.scale[2]);
+					obj.mesh       = meshes[res.mesh];
+					obj.texture_id = res.texture;
+				}
+			}
+
 			loadAndSetupGismos();
 		}
 		else
@@ -403,9 +512,11 @@ class Engine
 		}
 	}
 
-	Mesh skateboard{};
-	Mesh vikings{};
-	Mesh grid{};
+
+	std::array<Mesh, 3> meshes{};
+	Mesh& skateboard = meshes[0];
+	Mesh& vikings    = meshes[1];
+	Mesh& grid       = meshes[2];
 
 	std::array<Texture, 2> textures;
 

@@ -17,7 +17,7 @@ gameobjects:
     mesh: 1                 # index into meshes
     texture: 1              # index into textures
     position: [0.0, 0.0, 0.0]
-    rotation: [0.0, 0.0, 0.0]   # Euler angles, degrees
+    rotation: [-90.0, 0.0, 45.0]   # Euler angles, degrees
     scale: [1.0, 1.0, 1.0]
   - name: skateboard
     mesh: 0                 # index into meshes
