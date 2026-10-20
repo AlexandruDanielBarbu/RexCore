@@ -23,6 +23,7 @@
 #include "rex-events/Signal.hpp"
 #include "graphics/Vertex.hpp"
 #include "rex-objects/GameObject.hpp"
+#include "graphics/Material.hpp"
 
 #include <chrono>
 #include <iostream>  // report and propagate erros
@@ -261,6 +262,8 @@ class Camera
 
 	double oldxpos{}, oldypos{};
 };
+
+Material test{};
 
 class Engine
 {
