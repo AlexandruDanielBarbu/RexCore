@@ -381,7 +381,7 @@ class Engine
 		createSyncObjects();
 	}
 
-#define USE_SCENE_LOADER
+//#define USE_SCENE_LOADER
 #ifdef USE_SCENE_LOADER
 	bool use_scene_loader = true;
 #else
@@ -408,12 +408,6 @@ class Engine
 	{
 		if (use_scene_loader)
 		{
-			/* TODO
-				1. Read YAML file
-				2. for each mesh, load meshes in a vector
-				3. for each texture, load textures in a vector
-				4. for each game object load the appropriate parameters to the coresponding place
-			*/
 			YAML::Node config = YAML::LoadFile(SAMPLE_SCENE_YAML_FILE);
 			const std::string assetRoot = ASSET("");
 
@@ -508,9 +502,21 @@ class Engine
 		}
 		else
 		{
-			loadMeshes();
-			loadTextures();
-			setupGameObjects();
+
+			//loadMeshes();
+			//loadTextures();
+			//setupGameObjects();
+
+			loadOneTexture(textures[0], TEXTURE_PATH_SKATEBOARD);
+			
+			loadTestCube();
+
+			gameObjects[0].position   = {0.0f, 0.0f, 0.0f};
+			gameObjects[0].rotation   = {0.0f, 0.0f, 0.0f};
+			gameObjects[0].scale      = {1.0f, 1.0f, 1.0f};
+			gameObjects[0].mesh       = skateboard;
+			gameObjects[0].texture_id = 0;
+			
 			loadAndSetupGismos();
 		}
 	}
@@ -521,7 +527,8 @@ class Engine
 	Mesh& vikings    = meshes[1];
 	Mesh& grid       = meshes[2];
 
-	std::array<Texture, 2> textures;
+	static constexpr size_t       MAX_TEXTURES_LOADED = 5;
+	std::array<Texture, MAX_TEXTURES_LOADED> textures;
 
 	void loadOneTexture(Texture& tex, const std::string& path)
 	{
@@ -570,7 +577,8 @@ class Engine
 		mainCamera.aspect_ratio = static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
 		mainCamera.window       = window;
 	}
-
+	
+	std::vector<SubMeshMaterial> submesh_test;
 	void loadModel(const std::string &model_path, Mesh &mesh)
 	{
 		mesh.vertexOffset = vertices.size();
@@ -586,31 +594,49 @@ class Engine
 			throw std::runtime_error(warn + err);
 		}
 
+		if (!warn.empty())
+			spdlog::warn(warn);
+		if (!err.empty())
+			spdlog::error(err);
+
 		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 		for (const auto &shape : shapes)
 		{
-			for (const auto &index : shape.mesh.indices)
+			for (size_t f = 0; f < shape.mesh.material_ids.size(); f++)
 			{
-				Vertex vertex{};
-				vertex.pos = {
-				    attrib.vertices[3 * index.vertex_index + 0],
-				    attrib.vertices[3 * index.vertex_index + 1],
-				    attrib.vertices[3 * index.vertex_index + 2]};
+				int matId = shape.mesh.material_ids[f];
+				SubMeshMaterial smm{
+				    .firstIndex = *indices.rbegin(),
+				    .indexCount = 3,
+				    .materialId = matId};
+				submesh_test.push_back(smm);
 
-				vertex.texCoord = {
-				    attrib.texcoords[2 * index.texcoord_index + 0],
-				    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
+				// TODO load the textures once
 
-				vertex.color = {1.0f, 1.0f, 1.0f};
-
-				auto [it, inserted] = uniqueVertices.insert({vertex, static_cast<uint32_t>(vertices.size())});
-				if (inserted)
+				for (int k = 0; k < 3; ++k)
 				{
-					vertices.push_back(vertex);
+					const auto &index = shape.mesh.indices[3 * f + k];
+
+					Vertex      vertex{};
+					vertex.pos = {
+					    attrib.vertices[3 * index.vertex_index + 0],
+					    attrib.vertices[3 * index.vertex_index + 1],
+					    attrib.vertices[3 * index.vertex_index + 2]};
+
+					vertex.texCoord = {
+					    attrib.texcoords[2 * index.texcoord_index + 0],
+					    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
+
+					vertex.color = {1.0f, 1.0f, 1.0f};
+
+					auto [it, inserted] = uniqueVertices.insert({vertex, static_cast<uint32_t>(vertices.size())});
+					if (inserted)
+					{
+						vertices.push_back(vertex);
+					}
+
+					indices.push_back(it->second - mesh.vertexOffset);
 				}
-
-				indices.push_back(it->second - mesh.vertexOffset);
-
 			}
 		}
 		
@@ -706,8 +732,16 @@ class Engine
 		// Load skateboard mesh
 		loadModel(MODEL_PATH_SKATEBOARD, skateboard);
 
-		// Load viking room
+		// Load vikiloadTestCubeng room
 		loadModel(MODEL_PATH_VIKINGS, vikings);
+	}
+
+	// This loads the multi material cube and also the appropriate textures for the cube
+	const std::string MODEL_PATH_CUBE = ASSET("models/test-cube/multi-material-cube.obj");
+	void loadTestCube()
+	{
+		// use meshes[0] for now as debug
+		loadModel(MODEL_PATH_CUBE, meshes[0]);
 	}
 
 	void loadAndSetupGismos()

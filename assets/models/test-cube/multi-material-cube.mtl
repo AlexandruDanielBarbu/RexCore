@@ -1,0 +1,46 @@
+# Blender MTL File: 'multi-material-cube.blend'
+# Material Count: 4
+
+newmtl Marble
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.125733 0.052405 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../../textures/multi-texture-test/marble_512.jpg
+
+newmtl Steel
+Ns 250.000000
+Ka 0.922509 0.922509 0.922509
+Kd 1.000000 0.830675 0.839695
+Ks 0.559041 0.559041 0.559041
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Kd ../../textures/multi-texture-test/steel_512.jpg
+
+newmtl Wood
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.297147 0.058644
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../../textures/multi-texture-test/wood_512.jpg
+
+newmtl no-material
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.000000 0.553281
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd ../../textures/multi-texture-test/no-texture_512.jpg

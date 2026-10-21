@@ -1,9 +1,14 @@
 #pragma once
 
+#include <vulkan/vulkan_raii.hpp>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "graphics/Material.hpp"
+
 #include <optional>
+#include <vector>
 
 struct Texture
 {
@@ -50,5 +55,6 @@ struct GameObject
 
 	// Optional GameObject data
 	std::optional<Mesh> mesh;
-	std::optional<uint32_t> texture_id;
+	std::optional<std::vector<SubMeshMaterial>*> subMeshes;
+	std::optional<uint32_t> texture_id; // this will go
 };
