@@ -49,7 +49,7 @@ constexpr uint32_t WIDTH          = 1920;
 constexpr uint32_t HEIGHT         = 1080;
 constexpr char     WINDOW_TITLE[] = "Rex Core";
 constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
-constexpr int      MAX_OBJECTS          = 6; // 2 skates, 1 viking room, 1 set og gismos {grid and 3 axis} + 2 for padding for the descriptors of the textures
+constexpr int      MAX_OBJECTS          = 4; // 2 skates, 1 viking room, 1 set og gismos {grid and 3 axis} + 2 for padding for the descriptors of the textures
 
 const std::string MODEL_PATH_VIKINGS = ASSET("models/viking_room.obj");
 const std::string TEXTURE_PATH_VIKINGS = ASSET("textures/viking_room.png");
@@ -307,7 +307,7 @@ class Engine
 	vk::raii::Device                 device         = nullptr;
 
 	vk::raii::DescriptorPool         descriptorPool     = nullptr;
-	
+
 	// --- Depth test texture ----------------------------------
 	vk::raii::Image			 depthImage       = nullptr;
 	vk::raii::DeviceMemory		 depthImageMemory = nullptr;
@@ -333,6 +333,9 @@ class Engine
 	vk::Extent2D                     swapChainExtent;
 	std::vector<vk::raii::ImageView> swapChainImageViews;
 	vk::raii::DescriptorSetLayout    descriptorSetLayout = nullptr;
+	std::vector<vk::raii::DescriptorSet> materialDescriptorSets;
+
+
 	vk::raii::PipelineLayout         pipelineLayout   = nullptr;
 	vk::raii::Pipeline               graphicsPipeline = nullptr;
 	vk::raii::Pipeline               gizmoPipeline    = nullptr;
@@ -376,6 +379,7 @@ class Engine
 
 		createDescriptorPool();
 		createDescriptorSets();
+		createMaterialDescriptorSets(gameObjects[0], 4);
 
 		createCommandBuffers();
 		createSyncObjects();
@@ -609,6 +613,7 @@ class Engine
 			spdlog::info("Loaded {0}", materials[i].diffuse_texname);
 		}
 
+
 		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 		for (const auto &shape : shapes)
 		{
@@ -616,12 +621,10 @@ class Engine
 			{
 				int matId = shape.mesh.material_ids[f];
 				SubMeshMaterial smm{
-				    .firstIndex = static_cast<uint32_t>(vertices.size()) - mesh.vertexOffset,
+				    .firstIndex = static_cast<uint32_t>(indices.size()) - mesh.indexOffset,
 				    .indexCount = 3,
 				    .materialId = matId};
 				submesh_test.push_back(smm);
-
-				// TODO load the textures once
 
 				for (int k = 0; k < 3; ++k)
 				{
@@ -918,6 +921,56 @@ class Engine
 		endSingleTimeCommands(std::move(commandBuffer));
 	}
 
+	void createMaterialDescriptorSets(GameObject &cube, uint32_t materialCount)
+	{
+		const uint32_t setCount = materialCount * MAX_FRAMES_IN_FLIGHT;
+
+		std::vector<vk::DescriptorSetLayout> layouts(setCount, *descriptorSetLayout);
+
+		vk::DescriptorSetAllocateInfo allocInfo{
+		    .descriptorPool     = descriptorPool,
+		    .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+		    .pSetLayouts        = layouts.data()};
+
+		materialDescriptorSets = device.allocateDescriptorSets(allocInfo);
+
+		for (size_t m = 0; m < materialCount; m++)
+		{
+			for (size_t f = 0; f < MAX_FRAMES_IN_FLIGHT; f++)
+			{
+				Texture &tex = textures[m];
+				auto    &set = materialDescriptorSets[m * MAX_FRAMES_IN_FLIGHT + f];
+
+				vk::DescriptorBufferInfo bufferInfo{
+				    .buffer = cube.uniformBuffers[f],
+				    .offset = 0,
+				    .range  = sizeof(UniformBufferObject)};
+
+				vk::DescriptorImageInfo imageInfo{
+				    .sampler     = tex.textureSampler,
+				    .imageView   = tex.textureImageView,
+				    .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal};
+
+				std::array<vk::WriteDescriptorSet, 2> descriptorWrites{{{.dstSet          = set,
+				                                                         .dstBinding      = 0,
+				                                                         .dstArrayElement = 0,
+				                                                         .descriptorCount = 1,
+				                                                         .descriptorType  = vk::DescriptorType::eUniformBuffer,
+				                                                         .pBufferInfo     = &bufferInfo},
+
+				                                                        {.dstSet          = set,
+				                                                         .dstBinding      = 1,
+				                                                         .dstArrayElement = 0,
+				                                                         .descriptorCount = 1,
+				                                                         .descriptorType  = vk::DescriptorType::eCombinedImageSampler,
+				                                                         .pImageInfo      = &imageInfo}}};
+
+				device.updateDescriptorSets(descriptorWrites, {});
+
+			}
+		}
+	}
+
 	void createDescriptorSets()
 	{
 		for (auto& gameObject : gameObjects)
@@ -971,13 +1024,14 @@ class Engine
 
 	void createDescriptorPool()
 	{
+		const int TMP_DESC_POOL_SIZE = 11;
 		std::array<vk::DescriptorPoolSize, 2> poolSize{{
-			{.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = MAX_OBJECTS * MAX_FRAMES_IN_FLIGHT},
-			{.type = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = MAX_OBJECTS * MAX_FRAMES_IN_FLIGHT}}};
+			{.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = TMP_DESC_POOL_SIZE * MAX_FRAMES_IN_FLIGHT},
+			{.type = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = TMP_DESC_POOL_SIZE * MAX_FRAMES_IN_FLIGHT}}};
 		
 		vk::DescriptorPoolCreateInfo          poolInfo{
 			.flags         = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-		        .maxSets       = MAX_OBJECTS * MAX_FRAMES_IN_FLIGHT,
+		        .maxSets       = TMP_DESC_POOL_SIZE * MAX_FRAMES_IN_FLIGHT,
 		        .poolSizeCount = static_cast<uint32_t>(poolSize.size()),
 		        .pPoolSizes    = poolSize.data()};
 
@@ -1298,26 +1352,46 @@ class Engine
 		commandBuffers[frameIndex].setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
 		commandBuffers[frameIndex].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
 
-		for (size_t i = 0; i < 3; i++)
-		{
-			auto &gameObject = gameObjects[i];
+		//for (size_t i = 0; i < 3; i++)
+		//{
+		//	auto &gameObject = gameObjects[i];
 
+		//	commandBuffers[frameIndex].bindDescriptorSets(
+		//		vk::PipelineBindPoint::eGraphics,
+		//		pipelineLayout,
+		//		0,
+		//		*gameObject.descriptorSets[frameIndex],
+		//		nullptr);
+
+		//	if (gameObject.mesh.has_value())
+		//	{
+		//		commandBuffers[frameIndex].drawIndexed(
+		//			gameObject.mesh.value().indexCount,
+		//			1,
+		//			gameObject.mesh.value().indexOffset,
+		//			gameObject.mesh.value().vertexOffset,
+		//			0);
+		//	}
+		//}
+
+
+		auto &gameObject = gameObjects[0];
+
+		for (const auto &sm : submesh_test)
+		{
 			commandBuffers[frameIndex].bindDescriptorSets(
 				vk::PipelineBindPoint::eGraphics,
 				pipelineLayout,
 				0,
-				*gameObject.descriptorSets[frameIndex],
+   			        *materialDescriptorSets[sm.materialId * MAX_FRAMES_IN_FLIGHT + frameIndex],
 				nullptr);
-
-			if (gameObject.mesh.has_value())
-			{
-				commandBuffers[frameIndex].drawIndexed(
-					gameObject.mesh.value().indexCount,
-					1,
-					gameObject.mesh.value().indexOffset,
-					gameObject.mesh.value().vertexOffset,
-					0);
-			}
+		
+			commandBuffers[frameIndex].drawIndexed(
+				sm.indexCount,
+				1,
+				gameObject.mesh.value().indexOffset + sm.firstIndex,
+				gameObject.mesh.value().vertexOffset,
+				0);
 		}
 
 		commandBuffers[frameIndex].bindPipeline(vk::PipelineBindPoint::eGraphics, *gizmoPipeline);
