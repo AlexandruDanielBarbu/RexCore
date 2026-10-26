@@ -10,7 +10,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 2
-map_Kd ../../textures/multi-texture-test/marble_512.jpg
+map_Kd textures/multi-texture-test/marble_512.jpg
 
 newmtl Steel
 Ns 250.000000
@@ -21,7 +21,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 3
-map_Kd ../../textures/multi-texture-test/steel_512.jpg
+map_Kd textures/multi-texture-test/steel_512.jpg
 
 newmtl Wood
 Ns 250.000000
@@ -32,7 +32,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 2
-map_Kd ../../textures/multi-texture-test/wood_512.jpg
+map_Kd textures/multi-texture-test/wood_512.jpg
 
 newmtl no-material
 Ns 250.000000
@@ -43,4 +43,4 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 2
-map_Kd ../../textures/multi-texture-test/no-texture_512.jpg
+map_Kd textures/multi-texture-test/no-texture_512.jpg

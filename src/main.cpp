@@ -49,7 +49,7 @@ constexpr uint32_t WIDTH          = 1920;
 constexpr uint32_t HEIGHT         = 1080;
 constexpr char     WINDOW_TITLE[] = "Rex Core";
 constexpr int      MAX_FRAMES_IN_FLIGHT = 2;
-constexpr int      MAX_OBJECTS          = 4; // 2 skates, 1 viking room, 1 set og gismos {grid and 3 axis}
+constexpr int      MAX_OBJECTS          = 6; // 2 skates, 1 viking room, 1 set og gismos {grid and 3 axis} + 2 for padding for the descriptors of the textures
 
 const std::string MODEL_PATH_VIKINGS = ASSET("models/viking_room.obj");
 const std::string TEXTURE_PATH_VIKINGS = ASSET("textures/viking_room.png");
@@ -507,7 +507,7 @@ class Engine
 			//loadTextures();
 			//setupGameObjects();
 
-			loadOneTexture(textures[0], TEXTURE_PATH_SKATEBOARD);
+			//loadOneTexture(textures[0], TEXTURE_PATH_SKATEBOARD);
 			
 			loadTestCube();
 
@@ -535,8 +535,8 @@ class Engine
 		createTextureImage(tex, path);
 		createTextureImageView(tex);
 		createTextureSampler(tex);
-
 	}
+
 	void loadTextures()
 	{
 		// skateborad
@@ -599,6 +599,16 @@ class Engine
 		if (!err.empty())
 			spdlog::error(err);
 
+		// Load textures into memory
+		assert(materials.size() <= textures.size());
+		std::string assetRoot = ASSET("");
+		for (size_t i = 0; i < materials.size(); i++)
+		{
+
+			loadOneTexture(textures[i], assetRoot + materials[i].diffuse_texname);
+			spdlog::info("Loaded {0}", materials[i].diffuse_texname);
+		}
+
 		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 		for (const auto &shape : shapes)
 		{
@@ -606,7 +616,7 @@ class Engine
 			{
 				int matId = shape.mesh.material_ids[f];
 				SubMeshMaterial smm{
-				    .firstIndex = *indices.rbegin(),
+				    .firstIndex = static_cast<uint32_t>(vertices.size()) - mesh.vertexOffset,
 				    .indexCount = 3,
 				    .materialId = matId};
 				submesh_test.push_back(smm);

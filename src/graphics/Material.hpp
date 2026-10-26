@@ -2,13 +2,15 @@
 
 #include <glm/glm.hpp>
 
+#include <string>
+
 struct Texture;
 
 struct Material
 {
 	std::string name;
-	Texture albedo;
-	Texture normal_map;
+	Texture*     albedo = nullptr;
+	Texture*     normal_map = nullptr;
 
 	glm::vec4 ambient    = {};
 	glm::vec4 diffuse    = {};
