@@ -432,10 +432,10 @@ class Engine
 					}
 				}
 
-				assert(textureResources.size() <= textures.size());
+				assert(textureResources.size() <= textures_atlas.size());
 				for (size_t i = 0; i < textureResources.size(); i++)
 				{
-					loadOneTexture(textures[i], assetRoot + textureResources[i].path);
+					loadOneTextureIntoAtlas(textures_atlas, assetRoot + textureResources[i].path);
 				}
 			}
 
@@ -459,7 +459,7 @@ class Engine
 				assert(meshesResources.size() <= meshes.size());
 				for (size_t i = 0; i < meshesResources.size(); i++)
 				{
-					loadModel(assetRoot + meshesResources[i].path, meshes[i]);
+					loadModel(assetRoot + meshesResources[i].path, meshes[i], gameObjects[i]);
 				}
 			}
 
@@ -521,6 +521,12 @@ class Engine
 			gameObjects[0].mesh       = skateboard;
 			gameObjects[0].texture_id = 0;
 			
+			gameObjects[1].position   = {4.0f, 0.0f, 0.0f};
+			gameObjects[1].rotation   = {0.0f, 0.0f, 0.0f};
+			gameObjects[1].scale      = {1.0f, 1.0f, 1.0f};
+			gameObjects[1].mesh       = skateboard;
+			gameObjects[1].texture_id = 0;
+			
 			loadAndSetupGismos();
 		}
 	}
@@ -531,23 +537,24 @@ class Engine
 	Mesh& vikings    = meshes[1];
 	Mesh& grid       = meshes[2];
 
-	static constexpr size_t       MAX_TEXTURES_LOADED = 5;
-	std::array<Texture, MAX_TEXTURES_LOADED> textures;
-
-	void loadOneTexture(Texture& tex, const std::string& path)
+	std::vector<Texture> textures_atlas;
+	void loadOneTextureIntoAtlas(std::vector<Texture> &textures_atlas, const std::string &path)
 	{
+		Texture tex{};
 		createTextureImage(tex, path);
 		createTextureImageView(tex);
 		createTextureSampler(tex);
+
+		textures_atlas.push_back(std::move(tex));
 	}
 
 	void loadTextures()
 	{
 		// skateborad
-		loadOneTexture(textures[0], TEXTURE_PATH_SKATEBOARD);
+		loadOneTextureIntoAtlas(textures_atlas, TEXTURE_PATH_SKATEBOARD);
 
 		// vikings
-		loadOneTexture(textures[1], TEXTURE_PATH_VIKINGS);
+		loadOneTextureIntoAtlas(textures_atlas, TEXTURE_PATH_VIKINGS);
 	}
 
 	void setupGameObjects()
@@ -582,8 +589,7 @@ class Engine
 		mainCamera.window       = window;
 	}
 	
-	std::vector<SubMeshMaterial> submesh_test;
-	void loadModel(const std::string &model_path, Mesh &mesh)
+	void loadModel(const std::string &model_path, Mesh &mesh, GameObject& game_object)
 	{
 		mesh.vertexOffset = vertices.size();
 		mesh.indexOffset  = indices.size();
@@ -593,24 +599,27 @@ class Engine
 		std::vector<tinyobj::material_t> materials;
 		std::string                      warn, err;
 
-		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, model_path.c_str()))
+		// tinyobj error handling
 		{
-			throw std::runtime_error(warn + err);
+			if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, model_path.c_str()))
+			{
+				throw std::runtime_error(warn + err);
+			}
+
+			if (!warn.empty())
+				spdlog::warn(warn);
+			if (!err.empty())
+				spdlog::error(err);
 		}
 
-		if (!warn.empty())
-			spdlog::warn(warn);
-		if (!err.empty())
-			spdlog::error(err);
-
-		// Load textures into memory
-		assert(materials.size() <= textures.size());
 		std::string assetRoot = ASSET("");
-		for (size_t i = 0; i < materials.size(); i++)
+		// Load textures into memory
 		{
-
-			loadOneTexture(textures[i], assetRoot + materials[i].diffuse_texname);
-			spdlog::info("Loaded {0}", materials[i].diffuse_texname);
+			for (size_t i = 0; i < materials.size(); i++)
+			{
+				loadOneTextureIntoAtlas(textures_atlas, assetRoot + materials[i].diffuse_texname);
+				spdlog::info("Loaded {0}", materials[i].diffuse_texname);
+			}
 		}
 
 
@@ -620,11 +629,33 @@ class Engine
 			for (size_t f = 0; f < shape.mesh.material_ids.size(); f++)
 			{
 				int matId = shape.mesh.material_ids[f];
-				SubMeshMaterial smm{
-				    .firstIndex = static_cast<uint32_t>(indices.size()) - mesh.indexOffset,
-				    .indexCount = 3,
-				    .materialId = matId};
-				submesh_test.push_back(smm);
+				if (!game_object.subMeshes.empty())
+				{
+					SubMeshMaterial &last_submesh_material = game_object.subMeshes[game_object.subMeshes.size() - 1];
+					int lastMatId = last_submesh_material.materialId;
+
+					if (last_submesh_material.materialId == matId)
+					{
+						last_submesh_material.indexCount += 3;
+					}
+					else
+					{
+						SubMeshMaterial smm{
+						    .firstIndex = static_cast<uint32_t>(indices.size()) - mesh.indexOffset,
+						    .indexCount = 3,
+						    .materialId = matId};
+						game_object.subMeshes.push_back(smm);
+					
+					}
+				}
+				else
+				{
+					SubMeshMaterial smm{
+					    .firstIndex = static_cast<uint32_t>(indices.size()) - mesh.indexOffset,
+					    .indexCount = 3,
+					    .materialId = matId};
+					game_object.subMeshes.push_back(smm);
+				}
 
 				for (int k = 0; k < 3; ++k)
 				{
@@ -635,7 +666,8 @@ class Engine
 					    attrib.vertices[3 * index.vertex_index + 0],
 					    attrib.vertices[3 * index.vertex_index + 1],
 					    attrib.vertices[3 * index.vertex_index + 2]};
-
+					
+					assert(index.texcoord_index >= 0);
 					vertex.texCoord = {
 					    attrib.texcoords[2 * index.texcoord_index + 0],
 					    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
@@ -743,10 +775,10 @@ class Engine
 	void loadMeshes()
 	{
 		// Load skateboard mesh
-		loadModel(MODEL_PATH_SKATEBOARD, skateboard);
+		//loadModel(MODEL_PATH_SKATEBOARD, skateboard);
 
 		// Load vikiloadTestCubeng room
-		loadModel(MODEL_PATH_VIKINGS, vikings);
+		//loadModel(MODEL_PATH_VIKINGS, vikings);
 	}
 
 	// This loads the multi material cube and also the appropriate textures for the cube
@@ -754,7 +786,7 @@ class Engine
 	void loadTestCube()
 	{
 		// use meshes[0] for now as debug
-		loadModel(MODEL_PATH_CUBE, meshes[0]);
+		loadModel(MODEL_PATH_CUBE, meshes[0], gameObjects[0]);
 	}
 
 	void loadAndSetupGismos()
@@ -762,7 +794,7 @@ class Engine
 		// Be carefull! The grid uses the skateboard texture which may not be loaded, even if it is bogus.
 		loadGizmos(grid);
 
-		// Object 4 - Gismos
+		// Object 4 - Gizmos
 		gameObjects[3].position = {0.0f, 0.0f, 0.0f};
 		gameObjects[3].rotation = {0.0f, 0.0f, 0.0f};
 		gameObjects[3].scale    = {1.0f, 1.0f, 1.0f};
@@ -938,7 +970,7 @@ class Engine
 		{
 			for (size_t f = 0; f < MAX_FRAMES_IN_FLIGHT; f++)
 			{
-				Texture &tex = textures[m];
+				Texture &tex = textures_atlas[m];
 				auto    &set = materialDescriptorSets[m * MAX_FRAMES_IN_FLIGHT + f];
 
 				vk::DescriptorBufferInfo bufferInfo{
@@ -989,7 +1021,7 @@ class Engine
 
 			for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 			{
-				Texture                 &tex = textures[texture_id];
+				Texture                 &tex = textures_atlas[texture_id];
 
 				vk::DescriptorBufferInfo bufferInfo{
 					.buffer = gameObject.uniformBuffers[i],
@@ -1374,24 +1406,26 @@ class Engine
 		//	}
 		//}
 
-
-		auto &gameObject = gameObjects[0];
-
-		for (const auto &sm : submesh_test)
+		for (size_t i = 0; i < 1; i++)
 		{
-			commandBuffers[frameIndex].bindDescriptorSets(
-				vk::PipelineBindPoint::eGraphics,
-				pipelineLayout,
-				0,
-   			        *materialDescriptorSets[sm.materialId * MAX_FRAMES_IN_FLIGHT + frameIndex],
-				nullptr);
+			auto &gameObject = gameObjects[i];
+
+			for (const auto &sm : gameObject.subMeshes)
+			{
+				commandBuffers[frameIndex].bindDescriptorSets(
+					vk::PipelineBindPoint::eGraphics,
+					pipelineLayout,
+					0,
+   					*materialDescriptorSets[sm.materialId * MAX_FRAMES_IN_FLIGHT + frameIndex],
+					nullptr);
 		
-			commandBuffers[frameIndex].drawIndexed(
-				sm.indexCount,
-				1,
-				gameObject.mesh.value().indexOffset + sm.firstIndex,
-				gameObject.mesh.value().vertexOffset,
-				0);
+				commandBuffers[frameIndex].drawIndexed(
+					sm.indexCount,
+					1,
+					gameObject.mesh.value().indexOffset + sm.firstIndex,
+					gameObject.mesh.value().vertexOffset,
+					0);
+			}
 		}
 
 		commandBuffers[frameIndex].bindPipeline(vk::PipelineBindPoint::eGraphics, *gizmoPipeline);

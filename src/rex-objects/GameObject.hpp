@@ -54,7 +54,7 @@ struct GameObject
 	}
 
 	// Optional GameObject data
+	std::vector<SubMeshMaterial> subMeshes;
 	std::optional<Mesh> mesh;
-	std::optional<std::vector<SubMeshMaterial>*> subMeshes;
 	std::optional<uint32_t> texture_id; // this will go
 };
