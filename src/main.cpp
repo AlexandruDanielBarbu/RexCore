@@ -2,9 +2,6 @@
 #define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
 #include <vulkan/vulkan_raii.hpp>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
@@ -24,6 +21,7 @@
 #include "graphics/Vertex.hpp"
 #include "rex-objects/GameObject.hpp"
 #include "graphics/Material.hpp"
+#include "core/AssetLoader.hpp"
 
 #include <chrono>
 #include <iostream>  // report and propagate erros
@@ -69,28 +67,8 @@ static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSever
                                                       void                                         *pUserData)
 {
 	spdlog::error("Validation layer:\n\ttype {0}\n\tmsg: {1}", to_string(type), pCallbackData->pMessage);
-	//std::cerr << "BAAAAAAAA\n\nValidation layer:\n\ttype " << to_string(type) << "\n\tmsg: " << pCallbackData->pMessage << std::endl;
 
 	return vk::False;
-}
-
-
-static std::vector<char> readFile(const std::string &fileName)
-{
-	std::ifstream file(fileName, std::ios::ate | std::ios::binary);
-
-	if (!file.is_open()) {
-		throw std::runtime_error("failed to open file!");
-	}
-
-	std::vector<char> buffer(file.tellg());
-	
-	file.seekg(0, std::ios::beg);
-	file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-
-	file.close();
-
-	return buffer;
 }
 
 std::unordered_map<int, bool> keyMap;
@@ -525,6 +503,7 @@ class Engine
 			gameObjects[1].rotation   = {0.0f, 0.0f, 0.0f};
 			gameObjects[1].scale      = {1.0f, 1.0f, 1.0f};
 			gameObjects[1].mesh       = skateboard;
+			gameObjects[1].subMeshes  = gameObjects[0].subMeshes;
 			gameObjects[1].texture_id = 0;
 			
 			loadAndSetupGismos();
@@ -540,8 +519,10 @@ class Engine
 	std::vector<Texture> textures_atlas;
 	void loadOneTextureIntoAtlas(std::vector<Texture> &textures_atlas, const std::string &path)
 	{
+		auto    img = rex::AssetLoader::loadImage(path);
 		Texture tex{};
-		createTextureImage(tex, path);
+		
+		uploadTextureImage(tex, img);
 		createTextureImageView(tex);
 		createTextureSampler(tex);
 
@@ -915,32 +896,23 @@ class Engine
 		return {std::move(image), std::move(imageMemory)};
 	}
 
-	void createTextureImage(Texture &tex, const std::string &texture_path)
+	void uploadTextureImage(Texture &tex, const rex::AssetLoader::ImageData& img)
 	{
-		int            texWidth, texHeight, texChannels;
-		stbi_uc       *pixels    = stbi_load(texture_path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		vk::DeviceSize imageSize = texWidth * texHeight * 4;
-
-		if (!pixels)
-		{
-			throw std::runtime_error("failed to load texture image!");
-		}
+		size_t imageSize = img.pixels.size();
 
 		auto [stagingBuffer, stagingBufferMemory] =
 		    createBuffer(
-			    imageSize,
+		            imageSize,
 			    vk::BufferUsageFlagBits::eTransferSrc,
 			    vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 		
 		void *data = stagingBufferMemory.mapMemory(0, imageSize);
-		memcpy(data, pixels, imageSize);
+		memcpy(data, img.pixels.data(), imageSize);
 		stagingBufferMemory.unmapMemory();
 		
-		stbi_image_free(pixels);
-
 		std::tie(tex.textureImage, tex.textureImageMemory) = 
-			createImage(texWidth,
-				texHeight,
+			createImage(img.width,
+				img.height,
 		                vk::Format::eR8G8B8A8Srgb,
 		                vk::ImageTiling::eOptimal,
 		                vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
@@ -948,7 +920,7 @@ class Engine
 
 		vk::raii::CommandBuffer commandBuffer = beginSingleTimeCommands();
 		transitionImageLayout(commandBuffer, tex.textureImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
-		copyBufferToImage(commandBuffer, stagingBuffer, tex.textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+		copyBufferToImage(commandBuffer, stagingBuffer, tex.textureImage, static_cast<uint32_t>(img.width), static_cast<uint32_t>(img.height));
 		transitionImageLayout(commandBuffer, tex.textureImage, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
 		endSingleTimeCommands(std::move(commandBuffer));
 	}
@@ -1406,7 +1378,7 @@ class Engine
 		//	}
 		//}
 
-		for (size_t i = 0; i < 1; i++)
+		for (size_t i = 0; i < 2; i++)
 		{
 			auto &gameObject = gameObjects[i];
 
@@ -1517,7 +1489,7 @@ class Engine
 	{											   
 		// Shader Module
 		//auto shaderCode = readFile("slang.spv");
-		auto shaderCode   = readFile(shaderCodeFileName);
+		auto shaderCode   = rex::AssetLoader::readFile(shaderCodeFileName);
 		auto shaderModule = createShaderModule(shaderCode);
 
 		vk::PipelineShaderStageCreateInfo vertexShaderStageInfo{

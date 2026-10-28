@@ -50,7 +50,7 @@ add_subdirectory(third_party/yaml-cpp-master)
 
 # Application executable
 file(GLOB_RECURSE SOURCES src/*.cpp)
-add_executable(RexCore ${SOURCES})
+add_executable(RexCore ${SOURCES} "src/core/AssetLoader.cpp")
 target_include_directories(RexCore PRIVATE src)
 target_compile_definitions(RexCore PRIVATE REXCORE_ASSETS="${CMAKE_CURRENT_SOURCE_DIR}")
 
