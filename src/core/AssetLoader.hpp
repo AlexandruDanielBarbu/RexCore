@@ -20,6 +20,9 @@ namespace AssetLoader
 #include <vector>
 #include <string>
 
+#include "graphics/Vertex.hpp"
+#include "graphics/Material.hpp"
+
 namespace rex::AssetLoader
 {
         struct ImageData
@@ -29,6 +32,16 @@ namespace rex::AssetLoader
 	        std::vector<uint8_t> pixels;
         };
 
+        struct ModelData
+        {
+	        std::vector<Vertex>   vertices;
+	        std::vector<uint32_t> indices;
+	        std::vector<SubMeshMaterial> submeshes;
+	        std::vector<std::string>     materialTextures;
+        };
+
         std::vector<char> readFile(const std::string &fileName);
         ImageData         loadImage(const std::string &path);
+        ModelData         loadModel(const std::string &path);
+
 }

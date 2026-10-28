@@ -52,7 +52,11 @@ add_subdirectory(third_party/yaml-cpp-master)
 file(GLOB_RECURSE SOURCES src/*.cpp)
 add_executable(RexCore ${SOURCES} "src/core/AssetLoader.cpp")
 target_include_directories(RexCore PRIVATE src)
-target_compile_definitions(RexCore PRIVATE REXCORE_ASSETS="${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(RexCore PRIVATE
+    REXCORE_ASSETS="${CMAKE_CURRENT_SOURCE_DIR}"
+    VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+    VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
+    GLM_ENABLE_EXPERIMENTAL)
 
 target_link_libraries(RexCore PRIVATE 
     Vulkan::Vulkan 

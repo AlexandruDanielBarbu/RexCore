@@ -1,18 +1,9 @@
-#define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
-#define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
 #include <vulkan/vulkan_raii.hpp>
-
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
 
 #include "spdlog/spdlog.h"
 #include <yaml-cpp/yaml.h>
@@ -437,7 +428,7 @@ class Engine
 				assert(meshesResources.size() <= meshes.size());
 				for (size_t i = 0; i < meshesResources.size(); i++)
 				{
-					loadModel(assetRoot + meshesResources[i].path, meshes[i], gameObjects[i]);
+					uploadModel(assetRoot + meshesResources[i].path, meshes[i], gameObjects[i]);
 				}
 			}
 
@@ -570,106 +561,26 @@ class Engine
 		mainCamera.window       = window;
 	}
 	
-	void loadModel(const std::string &model_path, Mesh &mesh, GameObject& game_object)
+	void uploadModel(const std::string &model_path, Mesh &mesh, GameObject& game_object)
 	{
-		mesh.vertexOffset = vertices.size();
-		mesh.indexOffset  = indices.size();
+		auto modelData    = rex::AssetLoader::loadModel(model_path);
 
-		tinyobj::attrib_t                attrib;
-		std::vector<tinyobj::shape_t>    shapes;
-		std::vector<tinyobj::material_t> materials;
-		std::string                      warn, err;
-
-		// tinyobj error handling
+		for (size_t i = 0; i < modelData.materialTextures.size(); i++)
 		{
-			if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, model_path.c_str()))
-			{
-				throw std::runtime_error(warn + err);
-			}
-
-			if (!warn.empty())
-				spdlog::warn(warn);
-			if (!err.empty())
-				spdlog::error(err);
+			loadOneTextureIntoAtlas(textures_atlas, modelData.materialTextures[i]);
+			spdlog::info("Loaded {0}", modelData.materialTextures[i]);
 		}
 
-		std::string assetRoot = ASSET("");
-		// Load textures into memory
-		{
-			for (size_t i = 0; i < materials.size(); i++)
-			{
-				loadOneTextureIntoAtlas(textures_atlas, assetRoot + materials[i].diffuse_texname);
-				spdlog::info("Loaded {0}", materials[i].diffuse_texname);
-			}
-		}
+		mesh.vertexOffset = static_cast<uint32_t>(vertices.size());
+		mesh.indexOffset  = static_cast<uint32_t>(indices.size());
 
-
-		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-		for (const auto &shape : shapes)
-		{
-			for (size_t f = 0; f < shape.mesh.material_ids.size(); f++)
-			{
-				int matId = shape.mesh.material_ids[f];
-				if (!game_object.subMeshes.empty())
-				{
-					SubMeshMaterial &last_submesh_material = game_object.subMeshes[game_object.subMeshes.size() - 1];
-					int lastMatId = last_submesh_material.materialId;
-
-					if (last_submesh_material.materialId == matId)
-					{
-						last_submesh_material.indexCount += 3;
-					}
-					else
-					{
-						SubMeshMaterial smm{
-						    .firstIndex = static_cast<uint32_t>(indices.size()) - mesh.indexOffset,
-						    .indexCount = 3,
-						    .materialId = matId};
-						game_object.subMeshes.push_back(smm);
-					
-					}
-				}
-				else
-				{
-					SubMeshMaterial smm{
-					    .firstIndex = static_cast<uint32_t>(indices.size()) - mesh.indexOffset,
-					    .indexCount = 3,
-					    .materialId = matId};
-					game_object.subMeshes.push_back(smm);
-				}
-
-				for (int k = 0; k < 3; ++k)
-				{
-					const auto &index = shape.mesh.indices[3 * f + k];
-
-					Vertex      vertex{};
-					vertex.pos = {
-					    attrib.vertices[3 * index.vertex_index + 0],
-					    attrib.vertices[3 * index.vertex_index + 1],
-					    attrib.vertices[3 * index.vertex_index + 2]};
-					
-					assert(index.texcoord_index >= 0);
-					vertex.texCoord = {
-					    attrib.texcoords[2 * index.texcoord_index + 0],
-					    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
-
-					vertex.color = {1.0f, 1.0f, 1.0f};
-
-					auto [it, inserted] = uniqueVertices.insert({vertex, static_cast<uint32_t>(vertices.size())});
-					if (inserted)
-					{
-						vertices.push_back(vertex);
-					}
-
-					indices.push_back(it->second - mesh.vertexOffset);
-				}
-			}
-		}
+		vertices.insert(vertices.end(), modelData.vertices.begin(), modelData.vertices.end());
+		indices.insert(indices.end(), modelData.indices.begin(), modelData.indices.end());
 		
-		spdlog::info("Model has: {0} vertices.", vertices.size());
-		
-		mesh.vertexCount = vertices.size() - mesh.vertexOffset;
-		mesh.indexCount  = indices.size() - mesh.indexOffset;
+		mesh.vertexCount = static_cast<uint32_t>(modelData.vertices.size());
+		mesh.indexCount  = static_cast<uint32_t>(modelData.indices.size());
+
+		game_object.subMeshes.insert(game_object.subMeshes.end(), modelData.submeshes.begin(), modelData.submeshes.end());
 	}
 
 	void loadGizmos(Mesh& mesh)
@@ -767,7 +678,7 @@ class Engine
 	void loadTestCube()
 	{
 		// use meshes[0] for now as debug
-		loadModel(MODEL_PATH_CUBE, meshes[0], gameObjects[0]);
+		uploadModel(MODEL_PATH_CUBE, meshes[0], gameObjects[0]);
 	}
 
 	void loadAndSetupGismos()
