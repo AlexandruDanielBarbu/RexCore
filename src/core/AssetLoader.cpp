@@ -154,5 +154,4 @@ namespace rex::AssetLoader
 
 		return mdl;
 	}
-
 }

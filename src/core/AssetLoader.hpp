@@ -3,14 +3,6 @@
 /*
 namespace AssetLoader
 
-        loadOneTextureIntoAtlas(...)
-                - ported from main
-
-        loadModel(...)
-                - load textures of the model using above function
-                - load the vertices and indices in the master_vertex_buffer and master_index_buffer
-                - setup gameobject submesh vector
-
         loadSceneFromFile(string filepath)
                 - parse the file and load all the objects into memory
                 - setup gameObjects

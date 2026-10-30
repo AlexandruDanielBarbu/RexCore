@@ -302,7 +302,8 @@ class Engine
 	vk::Extent2D                     swapChainExtent;
 	std::vector<vk::raii::ImageView> swapChainImageViews;
 	vk::raii::DescriptorSetLayout    descriptorSetLayout = nullptr;
-	std::vector<vk::raii::DescriptorSet> materialDescriptorSets;
+	std::vector<vk::raii::DescriptorSet> materialDescriptorSets1;
+	std::vector<vk::raii::DescriptorSet> materialDescriptorSets2;
 
 
 	vk::raii::PipelineLayout         pipelineLayout   = nullptr;
@@ -348,7 +349,8 @@ class Engine
 
 		createDescriptorPool();
 		createDescriptorSets();
-		createMaterialDescriptorSets(gameObjects[0], 4);
+		createMaterialDescriptorSets(materialDescriptorSets1, gameObjects[0], 4);
+		createMaterialDescriptorSets(materialDescriptorSets2, gameObjects[1], 4);
 
 		createCommandBuffers();
 		createSyncObjects();
@@ -428,7 +430,7 @@ class Engine
 				assert(meshesResources.size() <= meshes.size());
 				for (size_t i = 0; i < meshesResources.size(); i++)
 				{
-					uploadModel(assetRoot + meshesResources[i].path, meshes[i], gameObjects[i]);
+					uploadModelWithTextures(assetRoot + meshesResources[i].path, meshes[i], gameObjects[i]);
 				}
 			}
 
@@ -475,27 +477,25 @@ class Engine
 		}
 		else
 		{
-
-			//loadMeshes();
-			//loadTextures();
-			//setupGameObjects();
-
-			//loadOneTexture(textures[0], TEXTURE_PATH_SKATEBOARD);
+			const std::string MODEL_PATH_CUBE = ASSET("models/test-cube/multi-material-cube.obj");
+			auto &cubeMesh        = meshes[0];
+			auto &cube1GameObject  = gameObjects[0];
 			
-			loadTestCube();
+			uploadModelWithTextures(MODEL_PATH_CUBE, cubeMesh, cube1GameObject);
 
-			gameObjects[0].position   = {0.0f, 0.0f, 0.0f};
-			gameObjects[0].rotation   = {0.0f, 0.0f, 0.0f};
-			gameObjects[0].scale      = {1.0f, 1.0f, 1.0f};
-			gameObjects[0].mesh       = skateboard;
-			gameObjects[0].texture_id = 0;
-			
-			gameObjects[1].position   = {4.0f, 0.0f, 0.0f};
-			gameObjects[1].rotation   = {0.0f, 0.0f, 0.0f};
-			gameObjects[1].scale      = {1.0f, 1.0f, 1.0f};
-			gameObjects[1].mesh       = skateboard;
-			gameObjects[1].subMeshes  = gameObjects[0].subMeshes;
-			gameObjects[1].texture_id = 0;
+			// Setup game objects
+			// Cube 1
+			cube1GameObject.position = {0.0f, 0.0f, 0.0f};
+			cube1GameObject.rotation = {0.0f, 0.0f, 0.0f};
+			cube1GameObject.scale    = {1.0f, 1.0f, 1.0f};
+			cube1GameObject.mesh     = cubeMesh;
+
+			auto &cube2GameObject     = gameObjects[1];
+			cube2GameObject.position  = {4.0f, 0.0f, 0.0f};
+			cube2GameObject.rotation  = {0.0f, 0.0f, 0.0f};
+			cube2GameObject.scale     = {1.0f, 1.0f, 1.0f};
+			cube2GameObject.subMeshes = cube1GameObject.subMeshes;
+			cube2GameObject.mesh      = cubeMesh;
 			
 			loadAndSetupGismos();
 		}
@@ -503,8 +503,6 @@ class Engine
 
 
 	std::array<Mesh, 3> meshes{};
-	Mesh& skateboard = meshes[0];
-	Mesh& vikings    = meshes[1];
 	Mesh& grid       = meshes[2];
 
 	std::vector<Texture> textures_atlas;
@@ -522,35 +520,12 @@ class Engine
 
 	void loadTextures()
 	{
-		// skateborad
-		loadOneTextureIntoAtlas(textures_atlas, TEXTURE_PATH_SKATEBOARD);
-
-		// vikings
-		loadOneTextureIntoAtlas(textures_atlas, TEXTURE_PATH_VIKINGS);
+		return;
 	}
 
 	void setupGameObjects()
 	{
-		// Object 1 - Center - skate
-		gameObjects[0].position = {0.0f, 0.0f, 0.0f};
-		gameObjects[0].rotation = {0.0f, 0.0f, 0.0f};
-		gameObjects[0].scale    = {1.0f, 1.0f, 1.0f};
-		gameObjects[0].mesh     = skateboard;
-		gameObjects[0].texture_id  = 0;
-
-		// Object 2 - Left - viking
-		gameObjects[1].position = {-2.0f, 0.0f, -1.0f};
-		gameObjects[1].rotation = {0.0f, glm::radians(45.0f), 0.0f};
-		gameObjects[1].scale    = {0.75f, 0.75f, 0.75f};
-		gameObjects[1].mesh     = vikings;
-		gameObjects[1].texture_id  = 1;
-		
-		// Object 3 - Right - skate
-		gameObjects[2].position = {2.0f, 0.0f, -1.0f};
-		gameObjects[2].rotation = {0.0f, glm::radians(-45.0f), 0.0f};
-		gameObjects[2].scale    = {0.75f, 0.75f, 0.75f};
-		gameObjects[2].mesh     = skateboard;
-		gameObjects[2].texture_id  = 0;
+		return;
 	}
 
 	void configureCamera()
@@ -561,7 +536,7 @@ class Engine
 		mainCamera.window       = window;
 	}
 	
-	void uploadModel(const std::string &model_path, Mesh &mesh, GameObject& game_object)
+	void uploadModelWithTextures(const std::string &model_path, Mesh &mesh, GameObject& game_object)
 	{
 		auto modelData    = rex::AssetLoader::loadModel(model_path);
 
@@ -666,19 +641,7 @@ class Engine
 
 	void loadMeshes()
 	{
-		// Load skateboard mesh
-		//loadModel(MODEL_PATH_SKATEBOARD, skateboard);
-
-		// Load vikiloadTestCubeng room
-		//loadModel(MODEL_PATH_VIKINGS, vikings);
-	}
-
-	// This loads the multi material cube and also the appropriate textures for the cube
-	const std::string MODEL_PATH_CUBE = ASSET("models/test-cube/multi-material-cube.obj");
-	void loadTestCube()
-	{
-		// use meshes[0] for now as debug
-		uploadModel(MODEL_PATH_CUBE, meshes[0], gameObjects[0]);
+		return;
 	}
 
 	void loadAndSetupGismos()
@@ -836,7 +799,7 @@ class Engine
 		endSingleTimeCommands(std::move(commandBuffer));
 	}
 
-	void createMaterialDescriptorSets(GameObject &cube, uint32_t materialCount)
+	void createMaterialDescriptorSets(std::vector<vk::raii::DescriptorSet> &materialDescriptorSets, GameObject &cube, uint32_t materialCount)
 	{
 		const uint32_t setCount = materialCount * MAX_FRAMES_IN_FLIGHT;
 
@@ -881,7 +844,6 @@ class Engine
 				                                                         .pImageInfo      = &imageInfo}}};
 
 				device.updateDescriptorSets(descriptorWrites, {});
-
 			}
 		}
 	}
@@ -939,7 +901,7 @@ class Engine
 
 	void createDescriptorPool()
 	{
-		const int TMP_DESC_POOL_SIZE = 11;
+		const int TMP_DESC_POOL_SIZE = 15;
 		std::array<vk::DescriptorPoolSize, 2> poolSize{{
 			{.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = TMP_DESC_POOL_SIZE * MAX_FRAMES_IN_FLIGHT},
 			{.type = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = TMP_DESC_POOL_SIZE * MAX_FRAMES_IN_FLIGHT}}};
@@ -1289,9 +1251,9 @@ class Engine
 		//	}
 		//}
 
-		for (size_t i = 0; i < 2; i++)
+		//for (size_t i = 0; i < 2; i++)
 		{
-			auto &gameObject = gameObjects[i];
+			auto &gameObject = gameObjects[0];
 
 			for (const auto &sm : gameObject.subMeshes)
 			{
@@ -1299,7 +1261,7 @@ class Engine
 					vk::PipelineBindPoint::eGraphics,
 					pipelineLayout,
 					0,
-   					*materialDescriptorSets[sm.materialId * MAX_FRAMES_IN_FLIGHT + frameIndex],
+   					*materialDescriptorSets1[sm.materialId * MAX_FRAMES_IN_FLIGHT + frameIndex],
 					nullptr);
 		
 				commandBuffers[frameIndex].drawIndexed(
@@ -1309,6 +1271,28 @@ class Engine
 					gameObject.mesh.value().vertexOffset,
 					0);
 			}
+		}
+
+		{
+			auto &gameObject = gameObjects[1];
+
+			for (const auto &sm : gameObject.subMeshes)
+			{
+				commandBuffers[frameIndex].bindDescriptorSets(
+				    vk::PipelineBindPoint::eGraphics,
+				    pipelineLayout,
+				    0,
+				    *materialDescriptorSets2[sm.materialId * MAX_FRAMES_IN_FLIGHT + frameIndex],
+				    nullptr);
+
+				commandBuffers[frameIndex].drawIndexed(
+				    sm.indexCount,
+				    1,
+				    gameObject.mesh.value().indexOffset + sm.firstIndex,
+				    gameObject.mesh.value().vertexOffset,
+				    0);
+			}
+
 		}
 
 		commandBuffers[frameIndex].bindPipeline(vk::PipelineBindPoint::eGraphics, *gizmoPipeline);
